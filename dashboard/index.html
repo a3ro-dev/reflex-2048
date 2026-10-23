@@ -1,0 +1,464 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>Reflex-2048 · live run</title>
+<meta name="description" content="Live instrument for the Reflex-2048 training run: a transformer learning 2048 in one forward pass per move.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Doto:wght@500;800;900&family=Martian+Mono:wdth,wght@87.5,400;87.5,600;100,400;100,700&display=swap" rel="stylesheet">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%23edc22e'/%3E%3Cpath d='M0 0h2v2H0zM4 0h2v2H4zM8 0h2v2H8zM12 0h2v2h-2zM2 2h2v2H2zM6 2h2v2H6zM10 2h2v2h-2zM14 2h2v2h-2z' fill='%233c3a32'/%3E%3C/svg%3E">
+<style>
+/* Tokens. Every colour is lifted from the original 2048 game. */
+:root{
+  --ground:#cdc1b4;      /* empty cell */
+  --grout:#bbada0;       /* board grout: hairlines, chart frame */
+  --ink:#3c3a32;         /* the 4096+ tile, text */
+  --ink-2:#574d43;       /* secondary text, 5.0:1 on ground */
+  --paper:#eee4da;       /* the 2 tile: the ASCII terrain's sheet */
+  --accent:#edc22e;      /* the 2048 tile: "now" — the latest value, the money already spent */
+  --mono:"Martian Mono", ui-monospace, Consolas, "Cascadia Mono", "Liberation Mono", monospace;
+  --dots:"Doto", "Martian Mono", ui-monospace, monospace;
+  --s1:4px;--s2:8px;--s3:12px;--s4:16px;--s5:24px;--s6:32px;--s7:48px;--s8:72px;
+  --t-xs:12px;--t-s:13px;--t-m:15px;--t-l:20px;--t-xl:32px;--t-xxl:clamp(44px,6.4vw,88px);
+}
+*{box-sizing:border-box}
+html{background:var(--ground);color:var(--ink);font:400 var(--t-s)/1.5 var(--mono);font-variation-settings:"wdth" 87.5;-webkit-text-size-adjust:100%}
+body{margin:0;padding:var(--s5) clamp(16px,3vw,40px) var(--s8)}
+h1,h2,h3,p{margin:0}
+a{color:inherit}
+:focus-visible{outline:3px solid var(--ink);outline-offset:3px}
+.num{font-variant-numeric:tabular-nums}
+
+/* head */
+header{display:grid;grid-template-columns:1fr auto;gap:var(--s4);align-items:end;padding-bottom:var(--s4);border-bottom:2px solid var(--ink)}
+.brand{font:900 var(--t-xl)/1 var(--dots);letter-spacing:.02em}
+.brand small{font:400 var(--t-s)/1.4 var(--mono);display:block;letter-spacing:0;margin-top:var(--s2);color:var(--ink-2)}
+.state{font-size:var(--t-s);text-align:right;color:var(--ink-2)}
+.state b{color:var(--ink);font-weight:600}
+.pulse{display:inline-block;width:10px;height:10px;background:var(--ink);margin-right:6px;vertical-align:-1px}
+.pulse.live{background:var(--accent);box-shadow:0 0 0 2px var(--ink) inset}
+
+/* first screen: the sentence, the money, the board, the curve */
+.lede{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(320px,.85fr);gap:var(--s6) var(--s7);padding:var(--s6) 0 var(--s5)}
+.say{font:800 var(--t-xxl)/.95 var(--dots);letter-spacing:-.01em;max-width:13ch}
+.say .u{font:600 var(--t-l)/1.3 var(--mono);display:block;letter-spacing:0;margin-top:var(--s4);max-width:46ch;color:var(--ink)}
+.money{align-self:end}
+.money h2{font:600 var(--t-s)/1 var(--mono);margin-bottom:var(--s3)}
+.burn{position:relative;height:56px;border:2px solid var(--ink);background:var(--paper)}
+.burn canvas{position:absolute;inset:0;width:100%;height:100%;image-rendering:pixelated}
+.burn-ticks{display:flex;justify-content:space-between;font-size:var(--t-xs);margin-top:var(--s1);color:var(--ink-2)}
+.money p{margin-top:var(--s3);font-size:var(--t-m);line-height:1.45}
+.money p b{font-weight:600}
+
+.stage>*{min-width:0}
+.stage{display:grid;grid-template-columns:minmax(300px,420px) minmax(0,1fr);gap:var(--s6);padding:var(--s5) 0 var(--s6);border-top:1px solid var(--grout)}
+figure{margin:0}
+figcaption{font-size:var(--t-s);margin-bottom:var(--s3);display:flex;justify-content:space-between;gap:var(--s3);flex-wrap:wrap}
+figcaption b{font-weight:600}
+.terrain{background:var(--paper);border:2px solid var(--ink);padding:var(--s3) var(--s2);overflow:hidden}
+.terrain pre{margin:0;font:400 11px/1.05 var(--mono);font-variation-settings:"wdth" 100;letter-spacing:0;color:var(--ink);white-space:pre;text-align:center;min-height:300px}
+.board{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;background:var(--grout);padding:6px;margin-top:var(--s3)}
+.board div{aspect-ratio:1;display:grid;place-items:center;font:700 19px/1 var(--mono);font-variation-settings:"wdth" 87.5;background:#cdc1b4;color:var(--ink)}
+.board .s{font-size:15px}
+.legend{font-size:var(--t-xs);color:var(--ink-2);margin-top:var(--s2)}
+.big canvas{width:100%;height:clamp(260px,34vw,420px);display:block}
+
+/* small multiples */
+section{padding:var(--s6) 0 var(--s4);border-top:2px solid var(--ink)}
+section>h2{font:800 var(--t-xl)/1 var(--dots);margin-bottom:var(--s2)}
+section>p.why{color:var(--ink-2);max-width:70ch;margin-bottom:var(--s5);font-size:var(--t-s)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:var(--s5) var(--s5)}
+.chart{border-top:1px solid var(--grout);padding-top:var(--s2)}
+.chart h3{font:600 var(--t-s)/1.3 var(--mono);display:flex;justify-content:space-between;gap:var(--s2)}
+.chart h3 span{font-weight:400;color:var(--ink-2)}
+.chart .v{font:700 22px/1.2 var(--mono);margin:var(--s1) 0 var(--s2)}
+.chart canvas{width:100%;height:120px;display:block}
+.chart .note{font-size:var(--t-xs);color:var(--ink-2);margin-top:var(--s1)}
+
+.rates{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:var(--s2);margin-top:var(--s5)}
+.rate{border-top:1px solid var(--grout);padding-top:var(--s2)}
+.rate .t{font:700 var(--t-s)/1 var(--mono)}
+.rate .p{font:700 24px/1.2 var(--mono);margin-top:var(--s1)}
+.rate canvas{width:100%;height:10px;display:block;margin-top:var(--s1);border:1px solid var(--ink)}
+
+table{border-collapse:collapse;width:100%;font-size:var(--t-s)}
+th,td{text-align:left;padding:6px var(--s3) 6px 0;border-bottom:1px solid var(--grout);vertical-align:top}
+th{font-weight:600}
+td.r,th.r{text-align:right}
+.two{display:grid;align-items:start;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));gap:var(--s6)}
+.arch pre{margin:0;font:400 12px/1.35 var(--mono);font-variation-settings:"wdth" 87.5;white-space:pre;overflow-x:auto;background:var(--paper);border:2px solid var(--ink);padding:var(--s4)}
+.notice{margin-top:var(--s4);padding:var(--s3) var(--s4);border:2px solid var(--ink);background:var(--paper);font-size:var(--t-s);display:none}
+.notice.on{display:block}
+footer{margin-top:var(--s7);padding-top:var(--s4);border-top:1px solid var(--grout);color:var(--ink-2);font-size:var(--t-xs);display:flex;justify-content:space-between;gap:var(--s4);flex-wrap:wrap}
+
+@media (max-width:900px){
+  .lede,.stage{grid-template-columns:1fr}
+  .stage{gap:var(--s5)}
+  .rates{grid-template-columns:repeat(3,minmax(0,1fr));row-gap:var(--s4)}
+  header{grid-template-columns:1fr}
+  .state{text-align:left}
+}
+@media (max-width:480px){
+  .say{font-size:44px}
+  .say .u{font-weight:400;font-size:var(--t-m)}
+  .wide{display:none}
+  .narrow{display:block!important}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<noscript><p>This instrument draws from the training run's live API and needs JavaScript.</p></noscript>
+<header>
+  <div class="brand">REFLEX-2048<small>a transformer that plays 2048 in one forward pass per move</small></div>
+  <p class="state" id="state"><span class="pulse" id="pulse"></span><span id="state-t">connecting to the pod…</span></p>
+</header>
+
+<div class="lede">
+  <h1 class="say" id="say">Waiting for the first game<span class="u" id="say-u">The teacher is building its lookup tables. Training starts when its first games land.</span></h1>
+  <div class="money">
+    <h2>Budget, hard stop at $10</h2>
+    <div class="burn" role="img" id="burn-img" aria-label="Budget burn"><canvas id="burn"></canvas></div>
+    <div class="burn-ticks num" aria-hidden="true"><span>$0</span><span>$2.50</span><span>$5</span><span>$7.50</span><span>$10</span></div>
+    <p class="num" id="money-p">…</p>
+  </div>
+</div>
+
+<div class="stage">
+  <figure>
+    <figcaption><b>Best live game, as terrain</b><span class="num" id="live-cap">height = tile exponent</span></figcaption>
+    <div class="terrain"><pre id="ascii" aria-label="ASCII rendering of the best live board as a height field">loading terrain</pre></div>
+    <div class="board" id="board" aria-label="Best live board"></div>
+    <p class="legend num" id="live-leg"> </p>
+  </figure>
+  <figure class="big">
+    <figcaption><b>Mean score per evaluation, pure policy, no search</b><span class="num" id="eval-cap">1,024 games each</span></figcaption>
+    <canvas id="evalc" role="img" aria-label="Mean, median and max evaluation score over training steps"></canvas>
+    <p class="legend">Solid fill: mean. Coarse dither: median. Line: best single game. Reference lines: best published no-search agent (~309k, Guei et al. 2021) and the human no-undo record (1,314,064).</p>
+  </figure>
+</div>
+
+<section aria-labelledby="h-eval">
+  <h2 id="h-eval">How far it gets</h2>
+  <p class="why">Share of the last evaluation's games that built each tile. The 65,536 tile is the one the record lives behind.</p>
+  <div class="rates" id="rates"></div>
+  <div class="notice" id="eval-empty">No evaluation yet. The evaluator plays 1,024 games against every new checkpoint, roughly every 1,000 training steps.</div>
+</section>
+
+<section aria-labelledby="h-train">
+  <h2 id="h-train">Training</h2>
+  <p class="why">Distillation from an expectimax teacher with a strictly proper loss: cross-entropy for the move, so the softmax is pushed toward calibrated probabilities. Held-out: every 50th teacher game, never trained on, for accuracy, ECE, Brier and NLL.</p>
+  <div class="grid" id="train"></div>
+  <div class="notice" id="train-empty">No training steps logged yet.</div>
+</section>
+
+<section aria-labelledby="h-sys">
+  <h2 id="h-sys">Machine</h2>
+  <div class="two">
+    <div>
+      <div class="grid" id="sys"></div>
+    </div>
+    <table aria-label="Teacher self-play">
+      <caption style="text-align:left;font-weight:600;padding-bottom:8px">Teacher self-play on the pod's CPUs</caption>
+      <tbody id="teacher"></tbody>
+    </table>
+  </div>
+</section>
+
+<section aria-labelledby="h-arch" class="arch">
+  <h2 id="h-arch">How it is wired</h2>
+  <p class="why">Everything runs on one RunPod A100 pod. The CPU cores play teacher games while the GPU trains and evaluates.</p>
+<pre class="wide">
+ 32 vCPU                                   A100 80GB
+ +-----------------------------+          +---------------------------------------------+
+ | teacher: expectimax d3      |  states  | Reflex transformer, 6.5M params             |
+ |  + endgame lookup tables    |--------->|                                             |
+ |  (macroxue/2048-ai, GPL-3)  |   .bin   |  16 cell tokens   tile emb + row + col      |
+ |  30 workers in parallel     |          |   4 move tokens   afterstate features:      |
+ +-----------------------------+          |                   empties, monotonicity,    |
+            ^                             |                   merges, corner, reward    |
+            | label student states        |   1 value token                             |
+            | (DAgger, self-correction)   |  8 x bidirectional encoder, d=256, 8 heads  |
+ +----------+------------------+          |  move logits, illegal = -inf, softmax       |
+ | evaluator: 1,024 games      |<---------|  loss: CE(teacher move) + 0.25 value huber  |
+ | in parallel on the GPU      |   ckpt   |  D4 symmetry augmentation                   |
+ +-----------------------------+          +---------------------------------------------+
+            |
+            v
+   /root/runs/*.jsonl --> server.py :8000 --> nginx :8080 --> this page, every 3 s
+</pre>
+<pre class="narrow" style="display:none">
+ CPU: teacher, 30 workers
+   expectimax d3 + lookup
+   tables (macroxue/2048-ai)
+        |
+        | .bin game records
+        v
+ GPU: Reflex transformer
+   21 tokens: 16 cells,
+   4 moves, 1 value
+   8 layers, d=256
+   CE + 0.25 value loss
+        |
+        | checkpoint
+        v
+ GPU: evaluator, 1,024
+   games in parallel
+        |
+        | student states
+        v
+ CPU: teacher labels
+   them (DAgger)
+        |
+        v
+ jsonl > server.py
+   > nginx :8080 > here
+</pre>
+</section>
+
+<footer><span id="foot">Reflex-2048 · instrument v1</span><span class="num" id="updated"></span></footer>
+
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+const REDUCED = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const INK = "#3c3a32", PAPER = "#eee4da", GOLD = "#edc22e", GROUT = "#bbada0";
+const TILE = {0:["#cdc1b4",INK],1:["#eee4da",INK],2:["#ede0c8",INK],3:["#f2b179",INK],4:["#f59563",INK],5:["#f67c5f",INK],6:["#f65e3b",INK],7:["#edcf72",INK],8:["#edcc61",INK],9:["#edc850",INK],10:["#edc53f",INK],11:["#edc22e",INK]};
+const tileStyle = e => TILE[e] || [INK, "#f9f6f2"];
+const fmt = (x, d=0) => x == null || !isFinite(x) ? "–" : Number(x).toLocaleString("en-US",{maximumFractionDigits:d, minimumFractionDigits:d});
+const short = x => x === 0 ? "0" : x >= 1e6 ? fmt(x/1e6,2)+"M" : x >= 1e4 ? fmt(x/1e3,0)+"k" : fmt(x, x < 10 ? 3 : 0);
+
+/* ---------- 1-bit ordered dither ---------- */
+const BAYER = (() => { const m=[[0,32,8,40,2,34,10,42],[48,16,56,24,50,18,58,26],[12,44,4,36,14,46,6,38],[60,28,52,20,62,30,54,22],[3,35,11,43,1,33,9,41],[51,19,59,27,49,17,57,25],[15,47,7,39,13,45,5,37],[63,31,55,23,61,29,53,21]]; return m.map(r=>r.map(v=>(v+.5)/64)); })();
+const PX = 2; // dither cell in CSS px
+function fitCanvas(c){ const r=c.getBoundingClientRect(), dpr=Math.min(2,devicePixelRatio||1); const w=Math.max(1,Math.round(r.width*dpr)), h=Math.max(1,Math.round(r.height*dpr)); if(c.width!==w||c.height!==h){c.width=w;c.height=h;} const g=c.getContext("2d"); g.setTransform(dpr,0,0,dpr,0,0); g.imageSmoothingEnabled=false; return [g,r.width,r.height]; }
+// fill region under/inside a mask function with density d (0..1) of ink dots
+function ditherFill(g, x0, y0, w, h, inside, d, color=INK){
+  g.fillStyle=color;
+  for(let y=y0; y<y0+h; y+=PX) for(let x=x0; x<x0+w; x+=PX){
+    if(!inside(x,y)) continue;
+    const t=BAYER[(y/PX|0)&7][(x/PX|0)&7];
+    const dd = typeof d==="function" ? d(x,y) : d;
+    if(t<dd) g.fillRect(x,y,PX,PX);
+  }
+}
+
+/* ---------- dithered line/area chart ---------- */
+function chart(c, series, opts={}){
+  const [g,W,H]=fitCanvas(c); g.clearRect(0,0,W,H);
+  const pad={l:opts.compact?4:56,r:opts.compact?4:16,t:8,b:opts.compact?4:22};
+  const pts=series.flatMap(s=>s.data.filter(p=>isFinite(p[1])));
+  if(!pts.length){ g.fillStyle=INK; g.font="12px Martian Mono, monospace"; g.fillText("no data yet", pad.l+4, H/2); return; }
+  let x0=Math.min(...pts.map(p=>p[0])), x1=Math.max(...pts.map(p=>p[0]));
+  let y0=opts.y0 ?? Math.min(...pts.map(p=>p[1])), y1=Math.max(...pts.map(p=>p[1]), ...(opts.refs||[]).filter(r=>opts.showRefs).map(r=>r.y));
+  if(opts.log){ y0=Math.max(y0,1e-9); }
+  if(x1===x0) x1=x0+1; if(y1===y0){ y1=y0+Math.abs(y0||1)*0.1; }
+  const tx=x=>pad.l+(x-x0)/(x1-x0)*(W-pad.l-pad.r);
+  const ty=y=>{ if(opts.log){ const a=Math.log(y0), b=Math.log(y1); return pad.t+(1-(Math.log(Math.max(y,y0))-a)/(b-a))*(H-pad.t-pad.b);} return pad.t+(1-(y-y0)/(y1-y0))*(H-pad.t-pad.b); };
+  // frame + axis text
+  g.fillStyle=GROUT; g.fillRect(pad.l,H-pad.b,W-pad.l-pad.r,1);
+  if(!opts.compact){
+    g.fillStyle=INK; g.font="11px Martian Mono, monospace"; g.textAlign="right";
+    [y0,(y0+y1)/2,y1].forEach(v=>g.fillText(short(v), pad.l-8, ty(v)+4));
+    g.textAlign="left"; g.fillText("step "+short(x0), pad.l, H-6); g.textAlign="right"; g.fillText(short(x1), W-pad.r, H-6);
+  }
+  // reference lines: dotted
+  (opts.refs||[]).forEach(r=>{ if(r.y<y0||r.y>y1) return; const yy=Math.round(ty(r.y)); g.fillStyle=INK; for(let x=pad.l;x<W-pad.r;x+=6) g.fillRect(x,yy,2,1); g.font="11px Martian Mono, monospace"; g.textAlign="left"; g.fillText(r.label, pad.l+6, yy-5); });
+  // series: area fills by dither density, lines solid
+  series.forEach(s=>{
+    const d=s.data.filter(p=>isFinite(p[1])); if(!d.length) return;
+    const yAt=x=>{ if(x<=tx(d[0][0])) return ty(d[0][1]); for(let i=1;i<d.length;i++){ const a=tx(d[i-1][0]), b=tx(d[i][0]); if(x<=b){ const f=(x-a)/Math.max(1e-6,b-a); return ty(d[i-1][1]+(d[i][1]-d[i-1][1])*f);} } return ty(d[d.length-1][1]); };
+    if(s.fill) ditherFill(g, pad.l, pad.t, W-pad.l-pad.r, H-pad.t-pad.b, (x,y)=> x<=tx(d[d.length-1][0]) && x>=tx(d[0][0]) && y>=yAt(x), (x,y)=> s.fill * (opts.reveal??1) * (0.55+0.45*(H-pad.b-y)/(H-pad.b-pad.t)) );
+    if(s.line!==false){ g.strokeStyle=INK; g.lineWidth=s.lw||2; g.beginPath(); d.forEach((p,i)=> i?g.lineTo(tx(p[0]),ty(p[1])):g.moveTo(tx(p[0]),ty(p[1]))); g.stroke(); }
+  });
+  // latest point in gold, the one accent job: "now"
+  const s0=series[0].data.filter(p=>isFinite(p[1])); const last=s0[s0.length-1];
+  if(last){ const X=tx(last[0]), Y=ty(last[1]); g.fillStyle=INK; g.fillRect(X-5,Y-5,10,10); g.fillStyle=GOLD; g.fillRect(X-3,Y-3,6,6); }
+}
+
+/* ---------- budget burn: 1-bit tape ---------- */
+function burn(b){
+  const c=$("burn"); const [g,W,H]=fitCanvas(c); g.clearRect(0,0,W,H);
+  const f=Math.min(1,(b?.spent||0)/(b?.cap||10));
+  g.fillStyle=GOLD; g.fillRect(0,0,W*f,H);
+  ditherFill(g,0,0,W*f,H,()=>true,(x)=>0.18+0.5*(x/(W*Math.max(f,1e-6))));
+  const proj=Math.min(1,((b?.spent||0)+(b?.rate_per_hr||0)*0.5)/(b?.cap||10)); // next 30 min, sparse
+  ditherFill(g,W*f,0,W*(proj-f),H,()=>true,0.12);
+  g.fillStyle=INK; for(let i=1;i<10;i++) g.fillRect(Math.round(W*i/10),0,1,i%5?6:H);
+  g.fillRect(Math.round(W*f)-1,0,3,H);
+}
+
+/* ---------- algorithmic ASCII: the board as a turning height field ---------- */
+const RAMP=" .,:;-=+*%#@";
+let liveBoard=null, theta=0.6, asciiRun=true;
+function heightAt(b,u,v){ // smooth bilinear over tile centres, u,v in [0,4]
+  const x=Math.min(3,Math.max(0,u-.5)), y=Math.min(3,Math.max(0,v-.5)); const i=Math.floor(x), j=Math.floor(y), fx=x-i, fy=y-j;
+  const h=(a,c)=>b[Math.min(3,c)][Math.min(3,a)];
+  const s=t=>t*t*(3-2*t);
+  const a=h(i,j)*(1-s(fx))+h(i+1,j)*s(fx), c=h(i,j+1)*(1-s(fx))+h(i+1,j+1)*s(fx);
+  return a*(1-s(fy))+c*s(fy);
+}
+let _cw=0;
+function charWidth(pre){ if(_cw) return _cw; const r=document.createElement("span"); r.textContent="M".repeat(40); r.style.cssText="position:absolute;visibility:hidden;white-space:pre"; pre.appendChild(r); _cw=r.getBoundingClientRect().width/40||7; r.remove(); return _cw; }
+document.fonts && document.fonts.ready.then(()=>{ _cw=0; renderAscii(); });
+function renderAscii(){
+  const pre=$("ascii"); const b=liveBoard||[[11,7,3,1],[9,6,2,0],[5,4,1,0],[2,1,0,0]];
+  const cw = (pre.clientWidth || 380) - 4, charW = charWidth(pre);
+  const cols = Math.max(30, Math.min(64, Math.floor(cw/charW)-1)), rows = Math.round(cols*0.5);
+  const ct=Math.cos(theta), st=Math.sin(theta), N=72, maxH=Math.max(1,...b.flat());
+  const P=[]; let minx=1e9,maxx=-1e9,miny=1e9,maxy=-1e9;
+  for(let gy=0;gy<N;gy++) for(let gx=0;gx<N;gx++){
+    const u=gx/(N-1)*4, v=gy/(N-1)*4; const hgt=heightAt(b,u,v)/maxH;
+    const x=u-2, y=v-2; const rx=x*ct-y*st, ry=x*st+y*ct;
+    const px=(rx-ry), py=(rx+ry)*0.5-hgt*2.4;
+    const e=0.06, dhx=(heightAt(b,u+e,v)-heightAt(b,u-e,v))/maxH, dhy=(heightAt(b,u,v+e)-heightAt(b,u,v-e))/maxH;
+    const lit=Math.max(0,Math.min(1, 0.3+hgt*0.6-(dhx*ct-dhy*st)*1.6));
+    const edge=(gx===0||gy===0||gx===N-1||gy===N-1);
+    P.push([px,py,rx+ry,lit,edge,gx===0||gx===N-1]);
+    minx=Math.min(minx,px);maxx=Math.max(maxx,px);miny=Math.min(miny,py);maxy=Math.max(maxy,py);
+  }
+  // fixed scale (the board's full rotation envelope) so the terrain does not breathe as it turns
+  const span=Math.max(5.7, maxx-minx), vspan=Math.max(5.2, maxy-miny);
+  const sc=Math.min((cols-2)/span, (rows-2)/vspan*2)/1;
+  const cx=(minx+maxx)/2, cy=(miny+maxy)/2;
+  const Z=new Float32Array(cols*rows).fill(-1e9), C=new Array(cols*rows).fill(" ");
+  for(const [px,py,depth,lit,edge,side] of P){
+    const sx=Math.round(cols/2+(px-cx)*sc), sy=Math.round(rows/2+(py-cy)*sc/2);
+    if(sx<0||sx>=cols||sy<0||sy>=rows) continue;
+    const k=sy*cols+sx; if(depth<=Z[k]) continue; Z[k]=depth;
+    C[k]= edge ? (side ? "|" : "_") : RAMP[Math.min(RAMP.length-1, Math.round(lit*(RAMP.length-1)))];
+  }
+  let out=""; for(let r=0;r<rows;r++){ out+=C.slice(r*cols,(r+1)*cols).join("").replace(/\s+$/,"")+"\n"; }
+  pre.textContent=out;
+}
+let lastT=performance.now();
+function loop(t){
+  if(asciiRun && !document.hidden){ theta+=(t-lastT)/1000*(2*Math.PI/24); renderAscii(); }
+  lastT=t; if(!REDUCED) requestAnimationFrame(loop);
+}
+new IntersectionObserver(es=>{ asciiRun=es[0].isIntersecting; }).observe($("ascii"));
+
+function drawBoard(b){
+  $("board").innerHTML = b.flat().map(e=>{ const [bg,fg]=tileStyle(e); const v=e?2**e:""; return `<div style="background:${bg};color:${fg}" class="${v>=10000?"s":""}">${v?fmt(v):""}</div>`; }).join("");
+}
+
+/* ---------- metrics ---------- */
+const TRAIN=[
+  ["ce","Policy cross-entropy","nats",{log:true}],
+  ["val_acc","Held-out move agreement","with teacher",{pct:true}],
+  ["val_ece","Calibration error (ECE)","lower is honest",{}],
+  ["val_brier","Brier score","proper, 0 = perfect",{}],
+  ["val_nll","Held-out NLL","nats",{}],
+  ["vloss","Value loss","huber, log return",{log:true}],
+  ["entropy","Policy entropy","nats",{}],
+  ["grad_norm","Gradient norm","pre-clip",{}],
+  ["lr","Learning rate","warmup + cosine",{}],
+  ["samples_per_s","Throughput","samples / s",{}],
+  ["dataset","Teacher states in memory","on GPU",{}],
+];
+function smallCharts(host, rows, defs, xkey="step"){
+  if(host.dataset.built!==String(defs.length)){
+    host.innerHTML=defs.map(([k,name,unit])=>`<div class="chart"><h3>${name}<span>${unit}</span></h3><div class="v num" id="v-${k}">–</div><canvas id="c-${k}" role="img" aria-label="${name} over time"></canvas></div>`).join("");
+    host.dataset.built=String(defs.length);
+  }
+  defs.forEach(([k,,,o])=>{
+    const data=rows.filter(r=>r[k]!=null).map(r=>[r[xkey],r[k]]);
+    const last=data[data.length-1];
+    $("v-"+k).textContent= last ? (o.pct? fmt(last[1]*100,1)+"%" : o.fmt? o.fmt(last[1]) : short(last[1])) : "–";
+    chart($("c-"+k), [{data, fill:.35}], {compact:true, log:o.log});
+  });
+}
+
+let S=null, revealT=0;
+function render(){
+  if(!S) return;
+  const b=S.budget, ev=S.eval||[], run=(S.train||[])[0], tr=run?run.rows:[];
+  const lastE=ev[ev.length-1], lastT=tr[tr.length-1];
+  // state line
+  const age=S.now-(lastT?.t||S.now);
+  $("pulse").className="pulse"+(age<60?" live":"");
+  $("state-t").innerHTML = lastT ? `<b>training</b> · step ${fmt(lastT.step)} · ${S.gpu?fmt(S.gpu.util)+"% GPU":""}` : (S.teacher?.states ? "<b>teacher playing</b> · trainer waiting" : "<b>warming up</b>");
+  // the sentence
+  if(lastE){
+    $("say").firstChild.textContent = `${short(lastE.mean_score)} mean, no search`;
+    $("say-u").textContent = `Step ${fmt(lastE.step)}: ${fmt(lastE.games)} games, median ${fmt(lastE.median_score)}, best ${fmt(lastE.max_score)}. ${fmt(lastE.rate_2048*100,1)}% reach 2048, ${fmt(lastE.rate_16384*100,1)}% reach 16384, at ${fmt(lastE.moves_per_s)} moves/s.`;
+  } else if(lastT){
+    $("say").firstChild.textContent = `${fmt((lastT.val_acc??0)*100,1)}% agreement with the teacher`;
+    $("say-u").textContent = `Step ${fmt(lastT.step)}, ${short(lastT.dataset)} teacher states on the GPU. The first evaluation games start with the first checkpoint.`;
+  } else if(S.teacher?.states){
+    $("say").firstChild.textContent = `${short(S.teacher.states)} teacher moves so far`;
+    $("say-u").textContent = `${fmt(S.teacher.games)} finished teacher games, mean ${fmt(S.teacher.mean_score)}. Training starts as soon as the first files are complete.`;
+  }
+  // money
+  burn(b);
+  if(b){
+    const left=b.remaining_hr; const hh=Math.floor(left), mm=Math.round((left-hh)*60);
+    $("money-p").innerHTML=`<b>$${fmt(b.spent,2)}</b> spent of $${fmt(b.cap,0)} on ${b.gpu.replace(/^NVIDIA\+?/,"").replace(/\+/g," ")} at $${fmt(b.rate_per_hr,2)}/hr. ${hh}h ${mm}m left before the pod saves its runs and stops itself.`;
+    $("burn-img").setAttribute("aria-label",`$${fmt(b.spent,2)} of $${fmt(b.cap,0)} spent`);
+  }
+  // live board
+  if(S.live){ liveBoard=S.live.board; drawBoard(S.live.board); $("live-cap").textContent=`score ${fmt(S.live.score)} · move ${fmt(S.live.moves)}`; $("live-leg").textContent=`${fmt(S.live.alive)} of ${fmt(S.live.games)} games still alive in the current evaluation.`; if(REDUCED) renderAscii(); }
+  else if(!$("board").children.length) drawBoard([[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]]);
+  // eval curve
+  const reveal = REDUCED ? 1 : Math.min(1,(performance.now()-revealT)/400);
+  chart($("evalc"), [
+    {data:ev.map(e=>[e.step,e.mean_score]), fill:.75},
+    {data:ev.map(e=>[e.step,e.median_score]), fill:.3, line:false},
+    {data:ev.map(e=>[e.step,e.max_score]), lw:1},
+  ], {y0:0, reveal, showRefs:false, refs:[{y:309208,label:"best no-search agent, 309k"},{y:1314064,label:"human record 1.31M"}]});
+  if(lastE) $("eval-cap").textContent=`${fmt(lastE.games)} games each · last ${fmt(lastE.seconds,0)} s`;
+  // rates
+  $("eval-empty").classList.toggle("on", !lastE);
+  const T=[2048,4096,8192,16384,32768,65536];
+  if($("rates").children.length!==6) $("rates").innerHTML=T.map(t=>`<div class="rate"><div class="t num">${fmt(t)}</div><div class="p num" id="r-${t}">–</div><canvas id="rc-${t}" aria-hidden="true"></canvas></div>`).join("");
+  T.forEach(t=>{ const v=lastE?lastE["rate_"+t]:null; $("r-"+t).textContent= v==null?"–":fmt(v*100, v<.1&&v>0?2:0)+"%"; const [g,W,H]=fitCanvas($("rc-"+t)); g.clearRect(0,0,W,H); ditherFill(g,0,0,W*(v||0),H,()=>true,.85); });
+  // training
+  $("train-empty").classList.toggle("on", !tr.length);
+  smallCharts($("train"), tr, TRAIN);
+  // system
+  const g=S.gpu||{};
+  const sysRows=(S._gpuHist||[]);
+  smallCharts($("sys"), sysRows, [["util","GPU utilisation","%",{}],["mem","GPU memory","GB",{fmt:v=>fmt(v,1)+" GB"}],["power","Power","W",{}],["temp","Temperature","°C",{}]], "t");
+  const te=S.teacher||{};
+  $("teacher").innerHTML=[
+    ["Workers",fmt(te.workers)],["Finished games",fmt(te.games)],["Mean teacher score",fmt(te.mean_score)],["Best teacher score",fmt(te.max_score)],
+    ["Moves recorded",fmt(te.states)],["CPU load (1 min)",`${fmt(te.cpu_load,1)} on ${fmt(te.cpus)} cores`]
+  ].map(([k,v])=>`<tr><th scope="row">${k}</th><td class="r num">${v}</td></tr>`).join("");
+  $("updated").textContent="updated "+new Date(S.now*1000).toLocaleTimeString();
+  if(reveal<1) requestAnimationFrame(render);
+}
+
+const gpuHist=[];
+async function poll(){
+  try{
+    const q = new URLSearchParams(location.search);
+    const r = q.has("demo") ? demo() : await (await fetch("api/state",{cache:"no-store"})).json();
+    const prevE=(S?.eval||[]).length;
+    S=r; if(r.gpu){ gpuHist.push({t:r.now, util:r.gpu.util, mem:r.gpu.mem_used/1024, power:r.gpu.power, temp:r.gpu.temp}); if(gpuHist.length>600) gpuHist.shift(); }
+    S._gpuHist=gpuHist;
+    if((r.eval||[]).length!==prevE) revealT=performance.now();
+    render();
+  }catch(e){
+    $("pulse").className="pulse"; $("state-t").innerHTML="<b>pod unreachable</b> · showing the last data · retrying every 3 s";
+  }
+}
+
+/* demo data for offline review: ?demo */
+function demo(){
+  const now=Date.now()/1000, rows=[], ev=[];
+  for(let s=100;s<=42000;s+=100){ const p=s/42000; rows.push({t:now-(42000-s)*.05,step:s,ce:.9*Math.exp(-3*p)+.21+.02*Math.sin(s/700),vloss:.4*Math.exp(-2*p)+.05,entropy:.7*Math.exp(-2*p)+.25,grad_norm:.6+.3*Math.exp(-4*p)+.1*Math.sin(s/300),lr:1e-3*Math.min(1,s/2000)*(.05+.95*.5*(1+Math.cos(Math.PI*s/200000))),samples_per_s:182000+3000*Math.sin(s/900),dataset:Math.min(61e6,4e6+s*1400), ...(s%1000===0?{val_acc:.93-.35*Math.exp(-4*p),val_ece:.004+.03*Math.exp(-5*p),val_brier:.11+.3*Math.exp(-4*p),val_nll:.2+.6*Math.exp(-4*p)}:{})}); }
+  for(let s=1000;s<=42000;s+=3000){ const p=s/42000; ev.push({step:s,games:1024,mean_score:30000+270000*(1-Math.exp(-3*p)),median_score:25000+240000*(1-Math.exp(-3*p)),max_score:90000+520000*(1-Math.exp(-2.5*p)),rate_2048:.4+.59*(1-Math.exp(-4*p)),rate_4096:.2+.75*(1-Math.exp(-3.5*p)),rate_8192:.05+.8*(1-Math.exp(-3*p)),rate_16384:.6*(1-Math.exp(-2.5*p)),rate_32768:.04*p,rate_65536:0,moves_per_s:310000,seconds:84}); }
+  return {now, budget:{rate_per_hr:1.79,hours:1.9,spent:3.4,cap:10,remaining_hr:3.69,gpu:"NVIDIA+A100-SXM4-80GB"}, gpu:{util:87,mem_used:21400,mem_total:81920,power:342,temp:61},
+    teacher:{files:30,states:61500000,games:3112,mean_score:489211,max_score:1532448,cpu_load:31.2,cpus:32,workers:30},
+    train:[{run:"reflex",rows}], eval:ev, live:{board:[[16,15,13,9],[14,12,10,7],[6,8,5,3],[1,2,1,0]],score:1076112,moves:41380,alive:212,games:1024,step:38000}};
+}
+
+renderAscii(); if(!REDUCED) requestAnimationFrame(loop);
+poll(); setInterval(poll,3000);
+addEventListener("resize",()=>render());
+</script>
+</body>
+</html>

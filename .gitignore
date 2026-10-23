@@ -1,0 +1,9 @@
+_ext/
+data/*.bin
+data/*.npz
+runs/
+__pycache__/
+*.pt
+
+shots/
+dashboard/__pycache__/
