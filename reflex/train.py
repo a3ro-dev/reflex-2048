@@ -165,7 +165,12 @@ def main():
     log = open(f"{args.out}/train.jsonl", "a")
     log.write(json.dumps(dict(t=time.time(), event="start", cfg=model.cfg, args=vars(args),
                               params=sum(p.numel() for p in model.parameters()))) + "\n")
-    t0, seen = time.time(), 0
+    t0, seen, step = time.time(), 0, 0
+
+    def save():
+        torch.save(dict(cfg=model.cfg, model=model.state_dict(), step=step, samples=seen), f"{args.out}/latest.pt.tmp")
+        os.replace(f"{args.out}/latest.pt.tmp", f"{args.out}/latest.pt")
+
     for step in range(1, args.steps + 1):
         prog = (time.time() - t0) / 3600 / args.hours
         if prog >= 1:
@@ -185,7 +190,7 @@ def main():
         lp = F.log_softmax(logits, -1).nan_to_num(0)          # -inf*0 on illegal moves
         ce = -(lp.gather(1, a[:, None])).mean()
         vm = torch.isfinite(v)
-        vloss = F.smooth_l1_loss(val[vm], torch.log1p(v[vm]) / 10)
+        vloss = F.smooth_l1_loss(val[vm], torch.log1p(v[vm]) / 10) if vm.any() else val.sum() * 0
         loss = ce + 0.25 * vloss
         opt.zero_grad(set_to_none=True)
         loss.backward()
@@ -205,16 +210,14 @@ def main():
                     if p.n and len(p.va):
                         rec.update({f"{name}_val_{k}": x for k, x in heldout(model, p).items()})
                 model.train()
-                torch.save(dict(cfg=model.cfg, model=model.state_dict(), step=step, samples=seen),
-                           f"{args.out}/latest.pt.tmp")
-                os.replace(f"{args.out}/latest.pt.tmp", f"{args.out}/latest.pt")
+                save()
             if step % args.refresh == 0:
                 for name, _, p in pools:
                     rec[f"n_{name}"] = p.refresh()
             log.write(json.dumps(rec) + "\n"); log.flush()
             if os.path.exists("/root/runs/WRAP_UP"):
                 break
-    torch.save(dict(cfg=model.cfg, model=model.state_dict(), step=step, samples=seen), f"{args.out}/latest.pt")
+    save()
     log.write(json.dumps(dict(t=time.time(), event="end", step=step, samples=seen)) + "\n")
 
 
