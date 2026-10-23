@@ -1,0 +1,169 @@
+\documentclass{article}
+
+\usepackage[nonatbib, final]{neurips}
+\usepackage[numbers]{natbib}
+
+\makeatletter
+\renewcommand{\@noticestring}{
+  \centering
+  Draft, \today. Numbers marked \textcolor{red}{red} are placeholders until the final evaluation is in.
+}
+\makeatother
+
+\input{extra_pkgs}
+
+\usepackage{mathtools}
+\newcommand{\res}[1]{\textcolor{red}{#1}}
+\newcommand{\method}{Reflex}
+
+\title{\method: Distilling Expectimax into a 15M-Parameter Transformer\\that Plays 2048 in One Forward Pass, on a \$10 Budget}
+
+\author{
+    Akshat Singh \\
+    \texttt{github.com/a3ro-dev/reflex-2048}
+}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+We train \method{}, a 14.5M-parameter bidirectional transformer that chooses each 2048 move with a single forward pass and no search, by distilling a hybrid expectimax and lookup-table teacher and correcting its distribution shift with DAgger.
+2048 is hard for search-free policies because a game lasts 10{,}000 to 30{,}000 moves, so a per-move error rate of $10^{-4}$ still ends most games early, and the states that matter (late-game boards with eight or more large tiles) are rare.
+\method{} reads the board as 16 tile tokens plus four action tokens that describe each move's afterstate, is trained with cross-entropy (a strictly proper scoring rule) on 360M teacher decisions plus student-visited states relabelled by the teacher, and runs at \res{7.5} ms per move on a laptop CPU.
+The whole pipeline, including teacher data generation, fits in about 5.5 hours of one A100 and under \$10 of cloud spend.
+On \res{10{,}000} fresh games \method{} averages \res{X} points (median \res{X}, \res{X}\% reach 32768), which is \res{X}\% of its depth-4 teacher and \res{above/below} the best published search-free n-tuple agent (412{,}785), while 2048former, a 53M-parameter transformer trained for about 72 GPU-hours, self-reports 605{,}491.
+\end{abstract}
+
+\section{Introduction}
+
+The strongest 2048 programs search: expectimax with endgame lookup tables reaches 690k to 772k mean score and reaches the 32768 tile in 78\% to 86\% of games, at tens to thousands of moves per second per core~\citep{xue2022macroxue}.
+Search-free agents evaluate the four afterstates once and pick the best.
+For a decade the best of these were n-tuple networks trained by temporal-difference learning~\citep{szubert2014temporal,jaskowski2016mastering,yeh2016multistage}, culminating in a 268M-weight two-stage network at 412{,}785 mean score with 30\% reaching 32768~\citep{guei2021optimistic}.
+Recently a 53M-parameter transformer distilled from 6-ply expectimax, 2048former, self-reported 605{,}491 with no search~\citep{keisling2025former}, echoing searchless chess at grandmaster level~\citep{ruoss2024amortized}.
+
+These results leave a practical question open: how small and how cheap can a search-free transformer be and still play well?
+Search-free play is attractive because the cost per move is one fixed-size forward pass, the policy is a calibrated distribution rather than an argmax, and the model is easy to batch on a GPU or run on a laptop.
+We answer under a hard constraint: one A100 rented for under \$10 in total, which buys about 5.5 hours for teacher self-play, training, DAgger and evaluation together.
+
+\paragraph{Contributions.}
+\begin{itemize}[leftmargin=*,nosep]
+  \item \textbf{A compact search-free 2048 policy.} \method{} has 14.5M parameters (3.7$\times$ smaller than 2048former) and plays at \res{X} mean score with \res{X}\% reaching 32768 on fresh games, at \res{7.5} ms per move on a laptop CPU (\S\ref{sec:results}).
+  \item \textbf{A budgeted distillation recipe.} Afterstate action tokens, cross-entropy on teacher decisions, D4 augmentation, and DAgger rounds that sample the boards just before each student death, all on one GPU in about four hours of training (\S\ref{sec:method}).
+  \item \textbf{Calibration on the student's own states.} Cross-entropy against teacher labels gives calibrated move probabilities on teacher-distribution boards (ECE \res{0.009}); on boards the student itself reaches, early checkpoints are overconfident (ECE \res{0.22}). We measure how DAgger closes this gap (\S\ref{sec:calibration}).
+  \item \textbf{Open artifacts}: code, the patched teacher with a board-labelling mode, data checks, training logs and the checkpoint.
+\end{itemize}
+
+\section{Related work}
+
+\paragraph{Search-free agents.}
+N-tuple networks learned by TD(0) on afterstates~\citep{szubert2014temporal} were improved by multi-stage weight promotion, temporal coherence and carousel shaping~\citep{jaskowski2016mastering,yeh2016multistage}, and by optimistic initialisation with tile-downgrading~\citep{guei2021optimistic}, which holds the best published 1-ply score.
+These tables have $10^8$ to $10^9$ weights.
+Transformers distilled from search are the newer line: in chess, a 270M-parameter model trained on Stockfish action values plays at grandmaster level without search~\citep{ruoss2024amortized}; in 2048, 2048former~\citep{keisling2025former} distils 6-ply expectimax into 53M parameters.
+We follow the distillation line at a quarter of the size and a small fraction of the compute.
+
+\paragraph{Search with learned or hand-built evaluation.}
+macroxue/2048-ai combines expectimax with dynamic-programming tables over the six largest tiles~\citep{xue2022macroxue}; we use it as the teacher at depths 3 and 4 (published 493k and 626k mean with the large tables).
+n-tuple networks also gain 150k to 200k points from 3- to 6-ply expectimax~\citep{guei2021optimistic,jaskowski2016mastering}.
+
+\paragraph{Imitation, distribution shift and calibration.}
+Behaviour cloning suffers compounding errors because the student visits states the expert never shows it; DAgger relabels the student's own states with the expert to bound this~\citep{ross2011dagger}.
+Knowledge distillation transfers a teacher's behaviour into a smaller network~\citep{hinton2015distilling}.
+Cross-entropy and the Brier score are strictly proper scoring rules~\citep{gneiting2007proper}, so minimising them against teacher labels drives predicted move probabilities toward the teacher's conditional move frequencies; we report top-label ECE~\citep{guo2017calibration} and classwise ECE~\citep{kull2019dirichlet}.
+
+\section{Method}
+\label{sec:method}
+
+\paragraph{Game and teacher.}
+Boards are $4\times4$ grids of tile exponents $e\in\{0,\dots,17\}$ ($0$ empty, $e$ meaning $2^e$); after each move a 2 (probability 0.9) or a 4 spawns on a uniformly chosen empty cell.
+The teacher is macroxue/2048-ai with its large lookup tables~\citep{xue2022macroxue}, patched to write every decision it makes in self-play (board, move, valuation, score, seed; 32 bytes per record) and to label arbitrary boards from a file (\texttt{-B}).
+Every teacher transition we checked replays exactly in our batched GPU implementation of the game (moves, spawns and rewards; 35.1M of 35.1M transitions in the files we audited).
+
+\paragraph{Input: tile tokens and afterstate action tokens.}
+\method{} embeds each of the 16 cells as a learned tile-exponent embedding plus learned row and column embeddings.
+It adds four action tokens, one per move, built from that move's deterministic afterstate: legality, log merge reward, empties, maximum tile, whether the maximum sits in a corner, row and column monotonicity, smoothness, available merges, tile sum, and the log reward of each follow-up move (14 features, an MLP to $d$).
+A value token makes 21 tokens in total.
+
+\paragraph{Architecture.}
+Eight pre-norm transformer blocks with bidirectional attention ($d=384$, 12 heads, MLP ratio 4, GELU) mix the 21 tokens~\citep{vaswani2017attention}.
+Each action token emits one logit; illegal moves are masked to $-\infty$, so the softmax is always a distribution over legal moves.
+The value token regresses the log return-to-go as an auxiliary task that is unused at inference.
+
+\paragraph{Objective.}
+For board $s$ with teacher move $a^\ast$ and return-to-go $G$,
+\begin{equation}
+\mathcal{L} = -\log \pi_\theta(a^\ast\mid s) \;+\; 0.25\,\mathrm{Huber}\big(v_\theta(s),\, \log(1+G)/10\big),
+\end{equation}
+with the value term masked where $G$ is unknown (DAgger labels and unfinished games).
+Each sample gets a random element of the dihedral group $D_4$ applied to the board, with the move relabelled to match (8$\times$ augmentation).
+
+\paragraph{DAgger with death tails.}
+Every round the latest checkpoint plays 512 games greedily on the GPU.
+We keep 2\% of visited boards at random and every board from the last 150 moves before each game ends, because a search-free policy usually loses a game through one bad move shortly before the end.
+The teacher labels these boards at depth 4 in parallel CPU workers, and the trainer mixes the labels in at a fixed share of each batch.
+
+\section{Experimental setup}
+
+\paragraph{Data.}
+Teacher self-play produced \res{360M} depth-3 decisions (\res{24k} games; mean 452{,}652, median 387{,}124, 43.8\% reach 32768 on an audited subset) and \res{X} depth-4 decisions (\res{X} games, mean \res{X}).
+DAgger produced \res{X} labelled student states over \res{X} rounds.
+Whole games whose seed is divisible by 50 are held out and never trained on; for DAgger, every 50th labelled state is held out.
+
+\paragraph{Training.}
+AdamW (lr $8\times10^{-4}$, $\beta=(0.9,0.98)$, weight decay 0.05), batch 8192, 1000 warm-up steps, then a cosine decay to 3\% of the peak over a fixed wall-clock budget of 3.55 hours.
+Batches mix depth-3 data, depth-4 data and DAgger labels at 40/30/30\%.
+Mixed precision (bfloat16) on one A100 80GB at about \res{25k--36k} samples per second, \res{X} samples in total.
+
+\paragraph{Evaluation.}
+Pure greedy policy (argmax of $\pi_\theta$, one forward pass per move, no search, no lookahead over spawns) on \res{10{,}000} games from seeds disjoint from training.
+We report mean, median and maximum score, and the rates of reaching 8192 to 65536, with standard errors.
+
+\section{Results}
+\label{sec:results}
+
+\begin{table}[t]
+\centering
+\caption{2048 agents on the standard game (90\% twos, no undo). Search-free rows evaluate one function per move. Our numbers are on \res{10{,}000} fresh games; others are as reported.}
+\label{tab:main}
+\small
+\begin{tabular}{lrrrrl}
+\toprule
+Agent & Params & Search & Mean score & 32768 & Source \\
+\midrule
+macroxue expectimax, large tables & tables & depth 8 & 711{,}769 & 80.5\% & \citep{xue2022macroxue} \\
+macroxue expectimax, large tables (our teacher) & tables & depth 4 & 625{,}898 & 70.7\% & \citep{xue2022macroxue} \\
+macroxue expectimax, large tables (our teacher) & tables & depth 3 & 493{,}058 & 52.5\% & \citep{xue2022macroxue} \\
+\midrule
+2048former v0.1 & 53.2M & none & 605{,}491 & 66.1\% & \citep{keisling2025former}$^\dagger$ \\
+2-stage 8$\times$6-tuple OTD+TC, downgrading & 268.4M & none & 412{,}785 & 30.2\% & \citep{guei2021optimistic} \\
+16-stage 5$\times$6-tuple MS-TC & 1342.2M & none & 324{,}710 & 19\% & \citep{jaskowski2016mastering} \\
+\textbf{\method{} (ours)} & \textbf{14.5M} & none & \res{X} $\pm$ \res{X} & \res{X} & this work \\
+\bottomrule
+\end{tabular}\\[2pt]
+{\footnotesize $^\dagger$ self-reported on a model card, 2048 games.}
+\end{table}
+
+\res{Results paragraphs, training-curve figure, tile-rate table and speed numbers go here after the final evaluation.}
+
+\subsection{Calibration on teacher states and on the student's own states}
+\label{sec:calibration}
+\res{Reliability diagrams for held-out depth-3, depth-4 and DAgger states; ECE and classwise ECE over training; accuracy by game stage.}
+
+\section{Limitations}
+\begin{itemize}[leftmargin=*,nosep]
+  \item One training run, no seeds or ablations: the budget paid for one run. Effects of the afterstate tokens, DAgger share and model size are untested.
+  \item The teacher is depth 3 and 4. 2048former used depth 6 and about 18$\times$ our training compute, so the gap to it mixes model size, teacher strength and compute.
+  \item Labels are hard teacher moves. Soft action-value targets preserve how much worse the other moves are and help in chess~\citep{ruoss2024amortized}; the teacher can export them, but we did not.
+  \item Calibration is measured against the teacher's choices, not against game outcomes. A calibrated probability that the teacher picks a move is not a calibrated probability that the move is safe.
+\end{itemize}
+
+\section{Conclusion}
+\res{Two sentences after results.}
+
+\paragraph{Reproducibility.}
+Code, launcher, data checks, logs and the checkpoint are at \url{https://github.com/a3ro-dev/reflex-2048}. The teacher patch modifies GPL-3.0 code and is distributed as a patch script.
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}
