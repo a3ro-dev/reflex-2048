@@ -77,15 +77,21 @@ def main():
     ap.add_argument("--sym", action="store_true")
     ap.add_argument("--watch", action="store_true")
     ap.add_argument("--out", default="/root/runs/eval.jsonl")
+    ap.add_argument("--seed", type=int, default=0)
     args = ap.parse_args()
-    last = None
+    last, best = None, -1
     while True:
         if os.path.exists(args.ckpt) and os.path.getmtime(args.ckpt) != last:
             last = os.path.getmtime(args.ckpt)
             model = load(args.ckpt, "cuda")
             step = torch.load(args.ckpt, weights_only=False, map_location="cpu").get("step", 0)
-            res = play(model, args.games, use_sym=args.sym, live=os.path.join(os.path.dirname(args.out), "live.json"))
+            res = play(model, args.games, use_sym=args.sym, seed=args.seed,
+                       live=os.path.join(os.path.dirname(args.out), "live.json"))
             res.update(t=time.time(), step=step, ckpt=args.ckpt)
+            if args.watch and res["mean_score"] > best:   # keep the best checkpoint seen so far
+                best = res["mean_score"]
+                torch.save(dict(cfg=model.cfg, model=model.state_dict(), step=step, eval=res),
+                           os.path.join(os.path.dirname(args.ckpt), "best.pt"))
             with open(args.out, "a") as f:
                 f.write(json.dumps(res) + "\n")
             print(json.dumps({k: v for k, v in res.items() if k != "best_board"}), flush=True)
