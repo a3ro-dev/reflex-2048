@@ -78,12 +78,14 @@ def main():
     ap.add_argument("--watch", action="store_true")
     ap.add_argument("--out", default="/root/runs/eval.jsonl")
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--min-interval", type=float, default=0, help="watch mode: seconds between evaluations "
+                    "(evaluation shares the GPU with training)")
     ap.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     args = ap.parse_args()
     last, best = None, -1
     while True:
         if os.path.exists(args.ckpt) and os.path.getmtime(args.ckpt) != last:
-            last = os.path.getmtime(args.ckpt)
+            last, last_run = os.path.getmtime(args.ckpt), time.time()
             model = load(args.ckpt, args.device)
             step = torch.load(args.ckpt, weights_only=False, map_location="cpu").get("step", 0)
             res = play(model, args.games, device=args.device, use_sym=args.sym, seed=args.seed,
@@ -98,7 +100,7 @@ def main():
             print(json.dumps({k: v for k, v in res.items() if k != "best_board"}), flush=True)
         if not args.watch or os.path.exists("/root/runs/WRAP_UP"):
             break
-        time.sleep(10)
+        time.sleep(max(10, args.min_interval - (time.time() - last_run)) if last else 10)
 
 
 if __name__ == "__main__":
