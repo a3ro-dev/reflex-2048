@@ -14,5 +14,5 @@ START=$(python3 -c "import time,datetime as d;print(d.datetime.utcfromtimestamp(
 pgrep -f "^python3 scripts/watchdog.py" >/dev/null || \
   nohup python3 scripts/watchdog.py $START $CAP > /root/logs/watchdog.log 2>&1 &
 cp /root/runs/reflex/latest.pt /root/runs/reflex/resume_from.pt
-[ -f /root/runs/reflex/best.pt ] && cp -n /root/runs/reflex/best.pt /root/runs/reflex/best_run1.pt   # evaluator restarts its best from scratch
+[ -f /root/runs/reflex/best.pt ] && cp -n /root/runs/reflex/best.pt /root/runs/reflex/best_run1.pt || true   # evaluator restarts its best from scratch
 INIT=/root/runs/reflex/resume_from.pt bash scripts/launch.sh $H
