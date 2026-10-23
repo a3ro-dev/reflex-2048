@@ -42,7 +42,7 @@ Full write-up: [paper/main.pdf](paper/main.pdf).
 pip install torch numpy
 ```
 
-Download `reflex.pt` from the [latest release](https://github.com/a3ro-dev/reflex-2048/releases), then:
+Download `reflex.pt` from the [latest release](https://github.com/a3ro-dev/reflex-2048/releases) or from [Hugging Face](https://huggingface.co/a3ro-dev/reflex-2048) (the model card there has a `snapshot_download` snippet), then:
 
 ```bash
 python -m reflex.play --ckpt reflex.pt --seed 0 --every 500
