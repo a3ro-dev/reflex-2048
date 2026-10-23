@@ -34,7 +34,7 @@ We train \method{}, a 14.5M-parameter bidirectional transformer that chooses eac
 The whole pipeline, including teacher data generation, used 4.8 A100-hours and \$8.7 of cloud spend.
 On 10{,}000 fresh games \method{} averages 164{,}395 points (median 131{,}064; 96.6\% reach 2048, 30.0\% reach 16384, 3.9\% reach 32768).
 That is about a quarter of its depth-4 teacher and 40\% of the best published search-free n-tuple agent (412{,}785); 2048former, a 53M-parameter transformer trained for about 72 GPU-hours, self-reports 605{,}491.
-Two negative results may be more useful than the score.
+We also report two negative results.
 Mixing DAgger relabels of the student's own states into 30\% of each batch dropped greedy play from 56{,}652 to 4{,}188 mean score while agreement with the teacher on held-out boards stayed at 87\%.
 A 1-ply expectimax over the auxiliary value head scores 4{,}189.
 Move probabilities are calibrated on teacher boards (ECE 0.006) and overconfident on boards the student reaches itself (ECE 0.27).
@@ -44,19 +44,19 @@ Move probabilities are calibrated on teacher boards (ECE 0.006) and overconfiden
 
 The strongest 2048 programs search: expectimax with endgame lookup tables reaches 690k to 772k mean score and reaches the 32768 tile in 78\% to 86\% of games, at tens to thousands of moves per second per core~\citep{xue2022macroxue}.
 Search-free agents evaluate the four afterstates once and pick the best.
-For a decade the best of these were n-tuple networks trained by temporal-difference learning~\citep{szubert2014temporal,jaskowski2016mastering,yeh2016multistage}, culminating in a 268M-weight two-stage network at 412{,}785 mean score with 30\% reaching 32768~\citep{guei2021optimistic}.
-Recently a 53M-parameter transformer distilled from 6-ply expectimax, 2048former, self-reported 605{,}491 with no search~\citep{keisling2025former}, echoing searchless chess at grandmaster level~\citep{ruoss2024amortized}.
+For a decade the best of these were n-tuple networks trained by temporal-difference learning~\citep{szubert2014temporal,jaskowski2016mastering,yeh2016multistage}, the strongest being a 268M-weight two-stage network at 412{,}785 mean score with 30\% reaching 32768~\citep{guei2021optimistic}.
+Recently a 53M-parameter transformer distilled from 6-ply expectimax, 2048former, self-reported 605{,}491 with no search~\citep{keisling2025former}, as a 270M-parameter transformer does for chess at grandmaster level~\citep{ruoss2024amortized}.
 
-These results leave a practical question open: how small and how cheap can a search-free transformer be and still play well?
-Search-free play is attractive because the cost per move is one fixed-size forward pass, the policy is a calibrated distribution rather than an argmax, and the model is easy to batch on a GPU or run on a laptop.
-We answer under a hard constraint: one A100 rented for under \$10 in total, which buys about 5.5 hours for teacher self-play, training, DAgger and evaluation together (we used 4.8).
+We ask how small and cheap a search-free transformer can be and still play well.
+A search-free policy costs one fixed-size forward pass per move, outputs a distribution over moves, and is easy to batch on a GPU or run on a laptop.
+Our budget was one A100 rented for under \$10, about 5.5 hours for teacher self-play, training, DAgger and evaluation together (we used 4.8).
 
 \paragraph{Contributions.}
 \begin{itemize}[leftmargin=*,nosep]
-  \item \textbf{A compact search-free 2048 policy.} \method{} has 14.5M parameters (3.7$\times$ smaller than 2048former) and plays at 164{,}395 mean score with 3.9\% reaching 32768 on 10{,}000 fresh games, at 9.1 ms per move on a laptop CPU (\S\ref{sec:results}). It is well below the published search-free bar; we report it as a budget point, not a record.
-  \item \textbf{A DAgger failure, measured.} Relabelling the student's own states and mixing them into training is the textbook fix for compounding errors. Here it collapsed greedy play by 93\% while every offline metric we logged stayed flat (\S\ref{sec:dagger}).
-  \item \textbf{Calibration on the student's own states.} Cross-entropy against teacher labels gives calibrated move probabilities on teacher boards (ECE 0.006 at depth 4); on a clean set of boards the final student reaches itself, it agrees with the teacher 61\% of the time at a mean confidence of 0.88 (ECE 0.27) (\S\ref{sec:calibration}).
-  \item \textbf{Open artifacts}: code, the patched teacher with a board-labelling mode, data checks, training logs and the checkpoint.
+  \item \method{}, a search-free 2048 policy with 14.5M parameters (3.7$\times$ smaller than 2048former) that plays at 164{,}395 mean score with 3.9\% reaching 32768 on 10{,}000 fresh games, at 9.1 ms per move on a laptop CPU (\S\ref{sec:results}). This is well below the published search-free bar.
+  \item A measured DAgger failure. Mixing teacher relabels of the student's own states into training, the standard fix for compounding errors, cut greedy play by 93\% while every offline metric we logged stayed flat (\S\ref{sec:dagger}).
+  \item Calibration on the student's own states. Cross-entropy against teacher labels gives calibrated move probabilities on teacher boards (ECE 0.006 at depth 4); on a clean set of boards the final student reaches itself, it agrees with the teacher 61\% of the time at a mean confidence of 0.88 (ECE 0.27) (\S\ref{sec:calibration}).
+  \item Code, the patched teacher with a board-labelling mode, data checks, training logs and the checkpoint, all released.
 \end{itemize}
 
 \section{Related work}
@@ -64,8 +64,8 @@ We answer under a hard constraint: one A100 rented for under \$10 in total, whic
 \paragraph{Search-free agents.}
 N-tuple networks learned by TD(0) on afterstates~\citep{szubert2014temporal} were improved by multi-stage weight promotion, temporal coherence and carousel shaping~\citep{jaskowski2016mastering,yeh2016multistage}, and by optimistic initialisation with tile-downgrading~\citep{guei2021optimistic}, which holds the best published 1-ply score.
 These tables have $10^8$ to $10^9$ weights.
-Transformers distilled from search are the newer line: in chess, a 270M-parameter model trained on Stockfish action values plays at grandmaster level without search~\citep{ruoss2024amortized}; in 2048, 2048former~\citep{keisling2025former} distils 6-ply expectimax into 53M parameters.
-We follow the distillation line at a quarter of the size and a small fraction of the compute.
+Transformers distilled from search are more recent. in chess, a 270M-parameter model trained on Stockfish action values plays at grandmaster level without search~\citep{ruoss2024amortized}. In 2048, 2048former~\citep{keisling2025former} distils 6-ply expectimax into 53M parameters.
+We follow this approach at a quarter of 2048former's size and about a thirtieth of its training compute.
 
 \paragraph{Search with learned or hand-built evaluation.}
 macroxue/2048-ai combines expectimax with dynamic-programming tables over the six largest tiles~\citep{xue2022macroxue}; we use it as the teacher at depths 3 and 4 (published 493k and 626k mean with the large tables).
@@ -173,7 +173,7 @@ Games & Mean & Median & Max & 2048 & 4096 & 8192 & 16384 & 32768 \\
 Table~\ref{tab:tiles} gives the final numbers; the two evaluations agree within 1.5\% on the mean.
 \method{} almost always builds 2048 and reaches 16384 in three games out of ten, but rarely 32768 and never 65536 in 10{,}000 games.
 That is about 27\% of its depth-4 teacher's self-play mean (610{,}452), 40\% of the best published n-tuple agent and 27\% of 2048former's self-report (Table~\ref{tab:main}).
-Held-out agreement with the depth-4 teacher is 93.6\%, so the gap is the compounding of rare errors over games that last 6{,}476 moves on average.
+Held-out agreement with the depth-4 teacher is 93.6\%, so most of the gap comes from rare errors compounding over games that last 6{,}476 moves on average.
 
 \paragraph{Learning curve.}
 Watch-mode evaluations of the final run (512 or 256 games, seed 0) rose monotonically: 70{,}817 mean after 1000 steps, 90{,}358 after 5000, 121{,}679 after 14{,}000 and 157{,}321 after 20{,}000.
@@ -185,9 +185,9 @@ Batched on the A100 the evaluator plays 65k moves per second across 10{,}000 gam
 
 \paragraph{1-ply over the value head does not work.}
 Choosing $\arg\max_a\, r_a + \mathbb{E}_{s'}[V(s')]$, with the expectation exact over every spawn, scores 4{,}189 on 128 games, no better than the collapsed policy of \S\ref{sec:dagger}.
-The value head is not useless: on 50{,}000 held-out depth-3 boards its prediction correlates at 0.88 with the realised return in log space.
-But it learned the teacher's return over a whole game, and it cannot separate the four afterstates of one move, whose values differ by far less than its error.
-A value head meant for search has to be trained for that, for example on action values~\citep{ruoss2024amortized}.
+On 50{,}000 held-out depth-3 boards the value head's prediction correlates at 0.88 with the realised return in log space, so it does track the return over a whole game.
+It cannot separate the four afterstates of one move, whose values differ by far less than its error.
+A value head meant for search would need a target that ranks moves, for example action values~\citep{ruoss2024amortized}.
 
 \subsection{DAgger collapsed greedy play}
 \label{sec:dagger}
@@ -200,7 +200,7 @@ Training on from the collapsed checkpoint with DAgger for 4{,}000 more steps did
 We ruled out the obvious bugs: labels from the board-labelling mode match the teacher's own self-play moves on 99.95\% of 2{,}000 depth-4 boards, boards survive the round trip through the teacher exactly, and the step-6000 checkpoint still scores 62{,}853 on 64 games with the code that evaluated the collapsed one.
 We did not isolate the cause.
 Candidates are the batch composition (about 90\% of DAgger boards come from the 150 moves before a weak student's death, so 30\% of every batch became losing positions), the high learning rate at the moment the data changed, or an interaction between imitation on the student's states and greedy play that our offline metrics cannot see.
-The practical lesson is that held-out agreement and calibration are not proxies for play in 2048: the only metric that caught this was playing games.
+Held-out agreement and calibration both missed the collapse; only playing games detected it.
 
 \subsection{Calibration on teacher states and on the student's own states}
 \label{sec:calibration}
@@ -224,7 +224,7 @@ Student, clean & 200k & 61.0\% & 0.881 & 0.271 & 0.140 & 3.205 \\
 On boards from the teacher's own games the final checkpoint is close to perfectly calibrated (Table~\ref{tab:calib}): mean confidence 0.931 against 93.6\% agreement at depth 4, with agreement rising from 89\% before the 2048 tile to 95\% at 32768 and above.
 On boards the student reaches itself, confidence barely drops (0.881) but agreement falls to 61\%, so ECE is 0.27, more than 40 times worse.
 Agreement on its own boards is lowest early in the game (43\% before 2048, 69\% at 16384).
-This is the distribution shift DAgger is meant to fix, and it is large: the student drifts into positions the teacher would play differently, and nothing in its probabilities warns of it.
+This is the distribution shift DAgger is meant to address: on its own boards the student often plays differently from the teacher, and its confidence does not drop to signal it.
 
 \section{Limitations}
 \begin{itemize}[leftmargin=*,nosep]
@@ -237,11 +237,11 @@ This is the distribution shift DAgger is meant to fix, and it is large: the stud
 \end{itemize}
 
 \section{Conclusion}
-A 14.5M-parameter transformer distilled from depth-3 and depth-4 expectimax for under \$10 plays 2048 at 164k mean score with one forward pass per move: a long way from the search-free records, but it runs on a laptop.
-The more durable findings are negative: the student's own boards are where its calibrated-looking probabilities stop meaning anything, and the standard remedy, DAgger, made play far worse while every offline metric stayed flat.
+A 14.5M-parameter transformer distilled from depth-3 and depth-4 expectimax for under \$10 plays 2048 at 164k mean score with one forward pass per move and runs on a laptop, well below the search-free records.
+Its move probabilities are calibrated on teacher boards and overconfident on its own, and DAgger, the standard remedy for that shift, made play far worse while every offline metric stayed flat.
 
 \paragraph{Acknowledgements.}
-The RunPod credits that paid for all compute in this work were given by \href{https://www.linkedin.com/in/pranavram98/}{Pranav Ramakrishnan}. We thank him for them.
+The RunPod credits that paid for all compute in this work were given by \href{https://www.linkedin.com/in/pranavram98/}{Pranav Ramakrishnan}, to whom we are grateful.
 
 \paragraph{Reproducibility.}
 Code, launcher, data checks, logs and the checkpoint are at \url{https://github.com/a3ro-dev/reflex-2048}. The teacher patch modifies GPL-3.0 code and is distributed as a patch script.
