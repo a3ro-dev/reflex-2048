@@ -231,7 +231,7 @@ This is the distribution shift DAgger is meant to fix, and it is large: the stud
   \item One training lineage, no seeds or ablations: the budget paid for one run and a restart. Effects of the afterstate tokens, DAgger share and model size are untested, and we did not isolate why DAgger collapsed play.
   \item No standard errors: per-game scores were not logged. Two evaluations on disjoint seeds agree within 1.5\%.
   \item The depth-4 teacher statistics come from the games finished at our last count, not from all 100M depth-4 decisions.
-  \item The teacher is depth 3 and 4. 2048former used depth 6 and about 18$\times$ our training compute, so the gap to it mixes model size, teacher strength and compute.
+  \item The teacher is depth 3 and 4. 2048former used depth 6 and about 30$\times$ our training compute (72 against 2.4 GPU-hours), so the gap to it mixes model size, teacher strength and compute.
   \item Labels are hard teacher moves. Soft action-value targets preserve how much worse the other moves are and help in chess~\citep{ruoss2024amortized}; the teacher can export them, but we did not.
   \item Calibration is measured against the teacher's choices, not against game outcomes. A calibrated probability that the teacher picks a move is not a calibrated probability that the move is safe.
 \end{itemize}
