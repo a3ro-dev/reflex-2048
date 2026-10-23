@@ -48,8 +48,7 @@ sub("""  if (log_file) {""", """  if (label_file) {
     while (fread(raw, 16, 1, in) == 1) {
       int layout[N][N];
       for (int y = 0; y < N; ++y) for (int x = 0; x < N; ++x) layout[y][x] = raw[y * N + x];
-      Node n(layout);
-      Node::cache.Clear();
+      Node n(layout);  // cache is position-keyed; self-play also keeps it across moves
       int m = -1;
       auto valuation = SuggestMove(n, &m);
       Dump(n, m < 0 ? 255 : m, valuation.type, valuation.value, 0);
