@@ -1,7 +1,10 @@
 """Calibration and agreement of a checkpoint on held-out teacher labels (never trained on):
 top-label ECE, classwise ECE, NLL, Brier, reliability bins, and accuracy by game stage.
-python3 scripts/final_report.py <ckpt> <out.json> [n_per_pool] [pools=d3,d4,dag]"""
+python3 scripts/final_report.py <ckpt> <out.json> [n_per_pool] [pools=d3,d4,dag,dageval]
+dageval = student states from fresh seeds (reflex.dagger --seed 900000 --out /root/data/dagger_eval),
+all held out; the dag pool's every-50th split shares games with training, so it is optimistic."""
 import json, sys
+import numpy as np
 import torch
 import torch.nn.functional as F
 sys.path.insert(0, "/root/reflex2048")
@@ -9,10 +12,15 @@ from reflex.env import action_features
 from reflex.model import load
 from reflex.train import Pool, read_games, read_labels
 
+def all_heldout(g):
+    return g[:3] + (np.ones(len(g[1]), bool),)
+
+
 ckpt, out = sys.argv[1], sys.argv[2]
 n = int(sys.argv[3]) if len(sys.argv) > 3 else 200_000
 POOLS = {"d3": ("/root/data/teacher/*.bin", read_games), "d4": ("/root/data/teacher4/*.bin", read_games),
-         "dag": ("/root/data/dagger/*.bin", read_labels)}
+         "dag": ("/root/data/dagger/*.bin", read_labels),
+         "dageval": ("/root/data/dagger_eval/*.bin", lambda p: all_heldout(read_labels(p)))}
 BINS = 15
 model = load(ckpt, "cuda")
 res = dict(ckpt=ckpt, step=torch.load(ckpt, weights_only=False, map_location="cpu").get("step"))

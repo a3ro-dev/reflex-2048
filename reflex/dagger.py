@@ -76,6 +76,7 @@ def main():
     ap.add_argument("--tail", type=int, default=200, help="boards kept before each death")
     ap.add_argument("--cap", type=int, default=200_000, help="max states labelled per round")
     ap.add_argument("--rounds", type=int, default=10**9)
+    ap.add_argument("--seed", type=int, default=1000, help="game seed of round 0 (use fresh seeds for eval sets)")
     ap.add_argument("--out", default="/root/data/dagger")
     ap.add_argument("--log", default="/root/runs/dagger.jsonl")
     args = ap.parse_args()
@@ -89,7 +90,7 @@ def main():
         t0 = time.time()
         model = load(args.ckpt, "cuda")
         step = torch.load(args.ckpt, weights_only=False, map_location="cpu").get("step", 0)
-        boards, mean = collect(model, args.games, args.q, args.tail, seed=1000 + rnd)
+        boards, mean = collect(model, args.games, args.q, args.tail, seed=args.seed + rnd)
         if len(boards) > args.cap:
             boards = boards[np.random.default_rng(rnd).choice(len(boards), args.cap, replace=False)]
         t1 = time.time()
