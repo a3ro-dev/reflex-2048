@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>reflex-2048: how it learned</title>
+<link rel="stylesheet" href="tiles.css">
+<style>
+  .row { display: grid; grid-template-columns: 1fr 44px 1fr 44px 1fr 44px 1fr; align-items: center; margin-top: 28px; }
+  .step { background: var(--t2); border-radius: 18px; padding: 18px 18px 16px; text-align: center; min-height: 168px; display: grid; align-content: center; gap: 6px; }
+  .step b { font-weight: 600; font-size: 22px; }
+  .step p { font-size: 15px; color: var(--ink-soft); }
+  .step.out { background: var(--t2048); color: var(--tile-ink); }
+  .step.out p { color: var(--tile-ink); }
+  .chips { display: flex; justify-content: center; gap: 6px; margin: 4px 0 2px; }
+  .chip { border-radius: 8px; padding: 6px 10px; font-weight: 700; font-size: 17px; color: var(--tile-ink); }
+  .detour { margin: 26px 0 0 calc((100% - 132px) / 4 + 44px); width: calc((100% - 132px) / 2 + 44px); border: 3px dashed var(--board); border-radius: 18px; padding: 16px 20px; display: grid; grid-template-columns: 1fr auto; gap: 18px; align-items: center; }
+  .detour b { font-weight: 600; font-size: 19px; }
+  .detour p { font-size: 15px; color: var(--ink-soft); margin-top: 2px; }
+  .drop { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 20px; }
+  .drop .from { color: var(--ink); } .drop .to { color: var(--accent-ink); }
+  .detour { position: relative; }
+  .detour::before { content: ""; position: absolute; left: 50%; top: -29px; height: 26px; border-left: 3px dashed var(--board); }
+</style>
+</head>
+<body>
+<main>
+  <h1>how it learned <small>copy a strong player, then play alone</small></h1>
+  <div class="row">
+    <div class="step">
+      <b>the teacher plays</b>
+      <p>an expectimax engine with<br>lookup tables, depth 3 and 4</p>
+    </div>
+    <div class="arrow" aria-hidden="true">→</div>
+    <div class="step">
+      <b>460M moves</b>
+      <div class="chips"><span class="chip num" style="background:var(--t16)">360M d3</span><span class="chip num" style="background:var(--t32)">100M d4</span></div>
+      <p>each board, and its move</p>
+    </div>
+    <div class="arrow" aria-hidden="true">→</div>
+    <div class="step">
+      <b>copy the teacher</b>
+      <p>cross-entropy on its move,<br>8 symmetries of every board,<br>261M samples on one A100</p>
+    </div>
+    <div class="arrow" aria-hidden="true">→</div>
+    <div class="step out">
+      <b>reflex.pt</b>
+      <p>14.5M params, 58 MB<br>$8.72 of compute in total</p>
+    </div>
+  </div>
+  <div class="detour">
+    <div>
+      <b>tried: DAgger</b>
+      <p>the student plays, the teacher relabels the boards it reaches, train on those.<br>held-out agreement stayed at 87%. play did not.</p>
+    </div>
+    <div class="drop num" aria-label="mean score fell from 56,652 to 4,188"><span class="from">56,652</span><span aria-hidden="true">→</span><span class="to">4,188</span></div>
+  </div>
+  <footer>so the final model trains on teacher games only, from the last checkpoint before DAgger data arrived</footer>
+</main>
+</body>
+</html>

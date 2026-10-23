@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>reflex-2048: one look, one move</title>
+<link rel="stylesheet" href="tiles.css">
+<style>
+  .row { display: grid; grid-template-columns: 250px 44px 300px 44px 236px 44px 1fr; align-items: center; margin-top: 28px; }
+  .board .t { font-size: 20px; } .board .v512 { font-size: 18px; } .board .v2048 { font-size: 16px; }
+  .tokens { display: grid; grid-template-columns: repeat(7, 1fr); gap: 7px; }
+  .tok { height: 30px; border-radius: 15px; background: var(--t2); }
+  .tok.m { background: var(--t8); } .tok.v { background: var(--t16); }
+  .legend { display: flex; gap: 14px; justify-content: center; margin-top: 12px; font-size: 14px; color: var(--ink-soft); }
+  .legend i { display: inline-block; width: 12px; height: 12px; border-radius: 6px; margin-right: 5px; vertical-align: -1px; }
+  .stack { position: relative; height: 196px; margin-right: 24px; }
+  .layer { position: absolute; left: 0; right: 0; height: 150px; border-radius: 16px; background: var(--t4); border: 3px solid var(--board); }
+  .layer.top { display: grid; place-items: center; text-align: center; background: var(--t2); }
+  .layer b { font-size: 24px; font-weight: 600; display: block; }
+  .moves { display: grid; gap: 9px; }
+  .mv { display: grid; grid-template-columns: 52px 1fr 42px; align-items: center; gap: 8px; font-size: 17px; }
+  .bar { height: 18px; border-radius: 9px; background: #ece5db; overflow: hidden; }
+  .bar span { display: block; height: 100%; background: var(--accent); border-radius: 9px; }
+  .mv.win { font-weight: 700; color: var(--accent-ink); }
+  .mv .num { text-align: right; }
+</style>
+</head>
+<body>
+<main>
+  <h1>one look, one move <small>no search, no lookahead</small></h1>
+  <div class="row">
+    <div>
+      <div class="board" role="img" aria-label="a real board from move 1,422 of a game the model played, score 28,280">
+        <div class="t v32">32</div><div class="t v16">16</div><div class="t v8">8</div><div class="t v4">4</div>
+        <div class="t v512">512</div><div class="t v4">4</div><div class="t v2">2</div><div class="t v2">2</div>
+        <div class="t v512">512</div><div class="t v2">2</div><div class="t"></div><div class="t"></div>
+        <div class="t v2048">2048</div><div class="t v2">2</div><div class="t"></div><div class="t"></div>
+      </div>
+      <p class="cap">move 1,422 of a real game</p>
+    </div>
+    <div class="arrow" aria-hidden="true">→</div>
+    <div>
+      <div class="tokens" role="img" aria-label="21 tokens: 16 tiles, 4 moves, 1 value">
+        <div class="tok"></div><div class="tok"></div><div class="tok"></div><div class="tok"></div><div class="tok"></div><div class="tok"></div><div class="tok"></div>
+        <div class="tok"></div><div class="tok"></div><div class="tok"></div><div class="tok"></div><div class="tok"></div><div class="tok"></div><div class="tok"></div>
+        <div class="tok"></div><div class="tok"></div><div class="tok m"></div><div class="tok m"></div><div class="tok m"></div><div class="tok m"></div><div class="tok v"></div>
+      </div>
+      <div class="legend"><span><i style="background:var(--t2)"></i>16 tiles</span><span><i style="background:var(--t8)"></i>4 moves</span><span><i style="background:var(--t16)"></i>1 value</span></div>
+      <p class="cap">each move token already knows<br>what the board looks like after it</p>
+    </div>
+    <div class="arrow" aria-hidden="true">→</div>
+    <div>
+      <div class="stack">
+        <div class="layer" style="top:40px; left:24px; right:-24px"></div>
+        <div class="layer" style="top:20px; left:12px; right:-12px"></div>
+        <div class="layer top" style="top:0"><div><b>8 blocks</b>d 384 · 12 heads</div></div>
+      </div>
+      <p class="cap">a 14.5M-param transformer</p>
+    </div>
+    <div class="arrow" aria-hidden="true">→</div>
+    <div>
+      <div class="moves">
+        <div class="mv win"><span>down</span><div class="bar"><span style="width:76.8%"></span></div><span class="num">0.77</span></div>
+        <div class="mv"><span>left</span><div class="bar"><span style="width:23.2%; background:var(--t8)"></span></div><span class="num">0.23</span></div>
+        <div class="mv"><span>up</span><div class="bar"><span style="width:0"></span></div><span class="num">0.00</span></div>
+        <div class="mv"><span>right</span><div class="bar"><span style="width:0"></span></div><span class="num">0.00</span></div>
+      </div>
+      <p class="cap">down merges the two 512s</p>
+    </div>
+  </div>
+  <footer><b>9 ms</b> a move on a laptop cpu</footer>
+</main>
+</body>
+</html>

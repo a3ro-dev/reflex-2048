@@ -1,0 +1,30 @@
+/* reflex-2048 diagrams: the game's own palette and a rounded face.
+   Tile hues follow 2048 up to 2048, then one deepening rust ramp for the big tiles (darker = bigger).
+   Text: dark ink on the warm tiles, white only on the ramp; every pair measured >= 4.5:1. */
+@import url("https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap");
+:root {
+  --ground: #faf8ef; --board: #bbada0; --cell: #cdc1b4; --ink: #4a3f36; --ink-soft: #675d53; --tile-ink: #3a3029; --line: #e4dccf;
+  --t2: #eee4da; --t4: #ede0c8; --t8: #f2b179; --t16: #f59563; --t32: #f67c5f; --t64: #f65e3b;
+  --t512: #edc850; --t2048: #edc22e;
+  --t4096: #bf4c35; --t8192: #a8432f; --t16384: #873527; --t32768: #5f2a1f;
+  --accent: #e8743b; --accent-ink: #b5481f;
+}
+* { box-sizing: border-box; margin: 0; }
+html { background: var(--ground); }
+body { color: var(--ink); font: 500 18px/1.35 Fredoka, "Segoe UI", sans-serif; }
+main { width: 1200px; padding: 40px 48px 36px; }
+h1 { font-weight: 600; font-size: 30px; letter-spacing: -0.01em; }
+h1 small { font-weight: 500; font-size: 18px; color: var(--ink-soft); margin-left: 10px; }
+.cap { font-size: 15px; color: var(--ink-soft); margin-top: 10px; text-align: center; }
+.arrow { text-align: center; font-size: 30px; color: var(--accent); font-weight: 600; }
+.num { font-variant-numeric: tabular-nums; }
+.board { background: var(--board); border-radius: 14px; padding: 9px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 9px; }
+.t { aspect-ratio: 1; border-radius: 8px; background: var(--cell); display: grid; place-items: center; font-weight: 700; font-size: 20px; color: var(--ink); }
+.v2 { background: var(--t2); } .v4 { background: var(--t4); }
+.v8, .v16, .v32, .v64, .v512, .v2048 { color: var(--tile-ink); }
+.v4096, .v8192, .v16384, .v32768 { color: #fff; }
+.v8 { background: var(--t8); } .v16 { background: var(--t16); } .v32 { background: var(--t32); } .v64 { background: var(--t64); }
+.v512 { background: var(--t512); } .v2048 { background: var(--t2048); }
+.v4096 { background: var(--t4096); } .v8192 { background: var(--t8192); } .v16384 { background: var(--t16384); } .v32768 { background: var(--t32768); }
+footer { margin-top: 26px; font-size: 16px; color: var(--ink-soft); }
+footer b { color: var(--ink); font-weight: 600; }

@@ -4,7 +4,11 @@ A 14.5M-parameter transformer that plays 2048 with **one forward pass per move a
 
 It is not a record. It's a small, cheap, honest data point, plus two negative results that were more interesting than the score.
 
+![one look, one move: a real board from move 1,422 becomes 21 tokens, goes through 8 transformer blocks, and comes out as move probabilities, down 0.77 and left 0.23](diagrams/how.png)
+
 ## Results
+
+![how far it gets: share of 10,000 games that build each tile, 2048 96.6%, 4096 86.4%, 8192 63.3%, 16384 30.0%, 32768 3.9%, 65536 0%; mean score 164,395 against 412,785 to 625,898 for other agents](diagrams/results.png)
 
 10,000 fresh games, greedy policy, end-of-schedule checkpoint (no picking the best eval):
 
@@ -59,6 +63,8 @@ m.decide([[0, 1, 0, 0], [0, 0, 0, 0], [0, 0, 1, 0], [0, 0, 0, 0]])   # tile expo
 
 ## How it works
 
+![how it learned: the teacher plays, 460M of its moves, copy the teacher, reflex.pt; a DAgger detour dropped play from 56,652 to 4,188](diagrams/train.png)
+
 - **Input:** 16 tile tokens (tile-exponent + row + column embeddings), plus 4 action tokens built from each move's afterstate (legality, reward, empties, max tile and whether it's in a corner, monotonicity, smoothness, merges, and the follow-up move rewards), plus 1 value token.
 - **Model:** 8 pre-norm bidirectional transformer blocks, d=384, 12 heads. One logit per action token, illegal moves masked.
 - **Loss:** cross-entropy to the teacher's move plus a 0.25× Huber value loss on log return-to-go. Random D4 symmetry per sample.
@@ -85,4 +91,4 @@ Budget: $8.72 of A100 time in total, including one pod migration when the origin
 
 ## Thanks
 
-The RunPod credits that paid for every GPU-hour here came from [pranavram98](https://www.linkedin.com/in/pranavram98/). This project would not have run without them. Thank you.
+The RunPod credits that paid for every GPU-hour here came from [Pranav Ramakrishnan](https://www.linkedin.com/in/pranavram98/). This project would not have run without them. Thank you.

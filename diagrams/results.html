@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>reflex-2048: how far it gets</title>
+<link rel="stylesheet" href="tiles.css">
+<style>
+  .grid { display: grid; grid-template-columns: 1.25fr 1fr; gap: 56px; margin-top: 26px; align-items: start; }
+  h2 { font-size: 19px; font-weight: 600; margin-bottom: 14px; }
+  h2 small { font-weight: 500; color: var(--ink-soft); font-size: 15px; margin-left: 6px; }
+  .ladder { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; align-items: end; }
+  .rung { text-align: center; }
+  .rung .t { font-size: 19px; border-radius: 10px; }
+  .rung .t.ghost { background: transparent; border: 3px dashed var(--board); color: var(--ink-soft); }
+  .rung .pct { font-weight: 700; font-size: 24px; margin-top: 10px; }
+  .rung .pct.zero { color: var(--ink-soft); font-weight: 600; }
+  .fill { height: 130px; background: #ece5db; border-radius: 10px; margin-top: 10px; display: flex; align-items: flex-end; overflow: hidden; }
+  .fill span { width: 100%; border-radius: 10px; }
+  .bars { display: grid; gap: 14px; }
+  .b { display: grid; grid-template-columns: 1fr; gap: 5px; }
+  .b .label { display: flex; justify-content: space-between; font-size: 16px; }
+  .b .label span:last-child { font-weight: 600; }
+  .b .track { height: 20px; border-radius: 10px; background: #ece5db; overflow: hidden; }
+  .b .track span { display: block; height: 100%; border-radius: 10px; background: var(--board); }
+  .b.us .label { color: var(--accent-ink); font-weight: 700; }
+  .b.us .track span { background: var(--accent); }
+  .note { font-size: 14px; color: var(--ink-soft); margin-top: 12px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>how far it gets <small>10,000 fresh games, greedy, no search</small></h1>
+  <div class="grid">
+    <section>
+      <h2>share of games that build each tile</h2>
+      <div class="ladder">
+        <div class="rung"><div class="t v2048">2048</div><div class="fill"><span style="height:96.6%; background:var(--t2048)"></span></div><div class="pct num">96.6%</div></div>
+        <div class="rung"><div class="t v4096">4096</div><div class="fill"><span style="height:86.4%; background:var(--t4096)"></span></div><div class="pct num">86.4%</div></div>
+        <div class="rung"><div class="t v8192">8192</div><div class="fill"><span style="height:63.3%; background:var(--t8192)"></span></div><div class="pct num">63.3%</div></div>
+        <div class="rung"><div class="t v16384" style="font-size:16px">16384</div><div class="fill"><span style="height:30%; background:var(--t16384)"></span></div><div class="pct num">30.0%</div></div>
+        <div class="rung"><div class="t v32768" style="font-size:16px">32768</div><div class="fill"><span style="height:3.9%; background:var(--t32768)"></span></div><div class="pct num">3.9%</div></div>
+        <div class="rung"><div class="t ghost" style="font-size:16px">65536</div><div class="fill"></div><div class="pct num zero">0%</div></div>
+      </div>
+    </section>
+    <section>
+      <h2>mean score <small>others as reported</small></h2>
+      <div class="bars">
+        <div class="b"><div class="label"><span>the teacher (search, depth 4)</span><span class="num">625,898</span></div><div class="track"><span style="width:100%"></span></div></div>
+        <div class="b"><div class="label"><span>2048former, 53M</span><span class="num">605,491</span></div><div class="track"><span style="width:96.7%"></span></div></div>
+        <div class="b"><div class="label"><span>best n-tuple agent, 268M</span><span class="num">412,785</span></div><div class="track"><span style="width:65.9%"></span></div></div>
+        <div class="b us"><div class="label"><span>reflex-2048, 14.5M</span><span class="num">164,395</span></div><div class="track"><span style="width:26.3%"></span></div></div>
+      </div>
+      <p class="note">median 131,064 · best game 835,640 · not a record, a cheap data point</p>
+    </section>
+  </div>
+</main>
+</body>
+</html>
