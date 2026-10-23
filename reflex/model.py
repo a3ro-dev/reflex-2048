@@ -3,8 +3,9 @@ distribution over the 4 moves in one forward pass.
 
 Tokens: 16 cell tokens (tile embedding + row/col embeddings) + 4 action tokens
 (the enriched afterstate features of each move) + 1 value token. A bidirectional
-encoder mixes them; each action token emits one logit, illegal moves are masked
-to -inf, so the output is always a valid distribution over legal moves only.
+pre-norm encoder (fused qkv + scaled_dot_product_attention) mixes them; each action
+token emits one logit, illegal moves are masked to -inf, so the output is always a
+valid distribution over legal moves only.
 """
 import torch
 import torch.nn as nn
@@ -13,8 +14,23 @@ import torch.nn.functional as F
 from .env import ACTIONS, N_ACT_FEATS, V, action_features
 
 
+class Block(nn.Module):
+    def __init__(self, d, heads, ff):
+        super().__init__()
+        self.h = heads
+        self.n1, self.n2 = nn.LayerNorm(d), nn.LayerNorm(d)
+        self.qkv, self.proj = nn.Linear(d, 3 * d), nn.Linear(d, d)
+        self.ff = nn.Sequential(nn.Linear(d, ff * d), nn.GELU(), nn.Linear(ff * d, d))
+
+    def forward(self, x):
+        B, T, D = x.shape
+        q, k, v = self.qkv(self.n1(x)).view(B, T, 3, self.h, D // self.h).permute(2, 0, 3, 1, 4)
+        x = x + self.proj(F.scaled_dot_product_attention(q, k, v).transpose(1, 2).reshape(B, T, D))
+        return x + self.ff(self.n2(x))
+
+
 class Reflex(nn.Module):
-    def __init__(self, d=256, layers=8, heads=8, ff=4, dropout=0.0):
+    def __init__(self, d=256, layers=8, heads=8, ff=4):
         super().__init__()
         self.cfg = dict(d=d, layers=layers, heads=heads, ff=ff)
         self.tile = nn.Embedding(V, d)
@@ -23,9 +39,7 @@ class Reflex(nn.Module):
         self.act_in = nn.Sequential(nn.Linear(N_ACT_FEATS, d), nn.GELU(), nn.Linear(d, d))
         self.act_id = nn.Parameter(torch.randn(4, d) * 0.02)
         self.val_tok = nn.Parameter(torch.randn(1, d) * 0.02)
-        layer = nn.TransformerEncoderLayer(d, heads, ff * d, dropout, activation="gelu",
-                                           batch_first=True, norm_first=True)
-        self.enc = nn.TransformerEncoder(layer, layers, enable_nested_tensor=False)
+        self.blocks = nn.ModuleList(Block(d, heads, ff) for _ in range(layers))
         self.norm = nn.LayerNorm(d)
         self.pi = nn.Linear(d, 1)
         self.v = nn.Sequential(nn.Linear(d, d), nn.GELU(), nn.Linear(d, 1))
@@ -37,8 +51,10 @@ class Reflex(nn.Module):
         B = b.shape[0]
         cells = (self.tile(b) + self.row + self.col).flatten(1, 2)          # (B,16,d)
         acts = self.act_in(feats) + self.act_id                              # (B,4,d)
-        x = torch.cat([cells, acts, self.val_tok.expand(B, 1, -1)], 1)
-        x = self.norm(self.enc(x))
+        x = torch.cat([cells, acts, self.val_tok.expand(B, 1, -1).to(cells.dtype)], 1)
+        for blk in self.blocks:
+            x = blk(x)
+        x = self.norm(x)
         logits = self.pi(x[:, 16:20]).squeeze(-1).float().masked_fill(~legal, float("-inf"))
         return logits, self.v(x[:, 20]).squeeze(-1).float()
 
