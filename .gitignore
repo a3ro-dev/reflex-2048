@@ -7,3 +7,11 @@ __pycache__/
 
 shots/
 dashboard/__pycache__/
+paper/*.aux
+paper/*.bbl
+paper/*.blg
+paper/*.log
+paper/*.out
+paper/*.fls
+paper/*.fdb_latexmk
+paper/*.synctex.gz
