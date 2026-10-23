@@ -10,7 +10,7 @@ nohup python3 -m reflex.train ${INIT:+--init $INIT} --d 384 --layers 8 --bs 8192
   --out /root/runs/reflex > /root/runs/train.log 2>&1 &
 nohup python3 -m reflex.evaluate --watch --min-interval 600 --games 512 --ckpt /root/runs/reflex/latest.pt \
   --out /root/runs/eval.jsonl > /root/runs/eval.log 2>&1 &
-nohup python3 -m reflex.dagger --ckpt /root/runs/reflex/latest.pt --depth 4 --workers 8 \
+nohup python3 -m reflex.dagger --ckpt /root/runs/reflex/latest.pt --depth 4 --workers 6 \
   --games 512 --q 0.02 --tail 150 > /root/runs/dagger.log 2>&1 &
 sleep 2
 pgrep -af "reflex\.(train|evaluate|dagger)"

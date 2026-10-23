@@ -11,6 +11,6 @@ done
 W=$(python3 -c "import json;m={c:json.loads(open('$O/select_'+c+'.jsonl').readlines()[-1])['mean_score'] for c in ('latest','best')};print(max(m,key=m.get))")
 cp $R/$W.pt $O/reflex.pt; echo "winner: $W" | tee $O/winner.txt
 python3 -m reflex.evaluate --ckpt $O/reflex.pt --games 10000 --seed 900000 --out $O/eval_10k.jsonl
-python3 -m reflex.dagger --ckpt $O/reflex.pt --rounds 1 --seed 910000 --games 512 --depth 4 --workers 30 \
+python3 -m reflex.dagger --ckpt $O/reflex.pt --rounds 1 --seed 910000 --games 512 --depth 4 --workers 12 \
   --out /root/data/dagger_eval --log $O/dagger_eval.jsonl
 python3 scripts/final_report.py $O/reflex.pt $O/report.json 200000 d3,d4,dag,dageval
