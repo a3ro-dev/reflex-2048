@@ -4,7 +4,7 @@
 # usage: scripts/resume.sh <train_hours> <spent_usd_before_this_start> [cap=10]
 set -euo pipefail
 H=$1; SPENT=$2; CAP=${3:-10}
-SNAP=/workspace/reflex2048-resume-20261023
+SNAP=${SNAP:-/workspace/reflex2048-resume-20261023}
 for d in teacher data runs logs; do [ -e /root/$d ] || ln -s $SNAP/$d /root/$d; done
 python3 -c "import numpy" 2>/dev/null || pip install -q --break-system-packages numpy
 cd /root/reflex2048
