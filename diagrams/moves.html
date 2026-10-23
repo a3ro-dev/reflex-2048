@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>reflex-2048: what a move token knows</title>
+<link rel="stylesheet" href="tiles.css">
+<style>
+  .row { display: grid; grid-template-columns: 220px 44px 1fr; align-items: center; margin-top: 26px; }
+  .board { padding: 7px; gap: 7px; border-radius: 12px; }
+  .board .t { font-size: 17px; border-radius: 7px; }
+  .board .v512, .board .v1024 { font-size: 15px; } .board .v2048 { font-size: 13px; }
+  .moves { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; }
+  .mv { border-radius: 16px; padding: 10px 10px 12px; background: var(--t2); }
+  .mv.pick { background: #fff3e6; outline: 3px solid var(--t8); }
+  .mv h2 { display: flex; justify-content: space-between; align-items: baseline; font-size: 19px; font-weight: 600; margin-bottom: 8px; }
+  .mv h2 .p { font-size: 17px; }
+  .mv.pick h2 { color: var(--accent-ink); }
+  .mv .board { padding: 5px; gap: 5px; border-radius: 10px; }
+  .mv .board .t { font-size: 12px; border-radius: 5px; }
+  .mv .board .v512, .mv .board .v1024, .mv .board .v2048 { font-size: 11px; }
+  .facts { margin-top: 9px; display: grid; gap: 3px; font-size: 14px; }
+  .facts div { display: flex; justify-content: space-between; }
+  .facts .yes { font-weight: 700; color: var(--accent-ink); }
+  .facts .no { color: var(--ink-soft); }
+  .say { margin-top: 22px; font-size: 18px; }
+  .say b { font-weight: 600; }
+  footer { margin-top: 12px; font-size: 15px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>what a move token knows <small>its afterstate, before any tile spawns</small></h1>
+  <div class="row">
+    <div>
+      <div class="board" role="img" aria-label="the board at move 1,422">
+        <div class="t v32">32</div><div class="t v16">16</div><div class="t v8">8</div><div class="t v4">4</div>
+        <div class="t v512">512</div><div class="t v4">4</div><div class="t v2">2</div><div class="t v2">2</div>
+        <div class="t v512">512</div><div class="t v2">2</div><div class="t"></div><div class="t"></div>
+        <div class="t v2048">2048</div><div class="t v2">2</div><div class="t"></div><div class="t"></div>
+      </div>
+      <p class="cap">now</p>
+    </div>
+    <div class="arrow" aria-hidden="true">→</div>
+    <div class="moves">
+      <div class="mv">
+        <h2><span>up</span><span class="p num">0.00</span></h2>
+        <div class="board" role="img" aria-label="board after up">
+          <div class="t v32">32</div><div class="t v16">16</div><div class="t v8">8</div><div class="t v4">4</div>
+          <div class="t v1024">1024</div><div class="t v4">4</div><div class="t v2">2</div><div class="t v2">2</div>
+          <div class="t v2048">2048</div><div class="t v4">4</div><div class="t"></div><div class="t"></div>
+          <div class="t"></div><div class="t"></div><div class="t"></div><div class="t"></div>
+        </div>
+        <div class="facts"><div><span>reward</span><span class="num">+1,028</span></div><div><span>empty cells</span><span class="num">6</span></div><div><span>2048 in a corner</span><span class="no">no</span></div></div>
+      </div>
+      <div class="mv pick">
+        <h2><span>down</span><span class="p num">0.77</span></h2>
+        <div class="board" role="img" aria-label="board after down">
+          <div class="t"></div><div class="t"></div><div class="t"></div><div class="t"></div>
+          <div class="t v32">32</div><div class="t v16">16</div><div class="t"></div><div class="t"></div>
+          <div class="t v1024">1024</div><div class="t v4">4</div><div class="t v8">8</div><div class="t v4">4</div>
+          <div class="t v2048">2048</div><div class="t v4">4</div><div class="t v2">2</div><div class="t v2">2</div>
+        </div>
+        <div class="facts"><div><span>reward</span><span class="num">+1,028</span></div><div><span>empty cells</span><span class="num">6</span></div><div><span>2048 in a corner</span><span class="yes">yes</span></div></div>
+      </div>
+      <div class="mv">
+        <h2><span>left</span><span class="p num">0.23</span></h2>
+        <div class="board" role="img" aria-label="board after left">
+          <div class="t v32">32</div><div class="t v16">16</div><div class="t v8">8</div><div class="t v4">4</div>
+          <div class="t v512">512</div><div class="t v4">4</div><div class="t v4">4</div><div class="t"></div>
+          <div class="t v512">512</div><div class="t v2">2</div><div class="t"></div><div class="t"></div>
+          <div class="t v2048">2048</div><div class="t v2">2</div><div class="t"></div><div class="t"></div>
+        </div>
+        <div class="facts"><div><span>reward</span><span class="num">+4</span></div><div><span>empty cells</span><span class="num">5</span></div><div><span>2048 in a corner</span><span class="yes">yes</span></div></div>
+      </div>
+      <div class="mv">
+        <h2><span>right</span><span class="p num">0.00</span></h2>
+        <div class="board" role="img" aria-label="board after right">
+          <div class="t v32">32</div><div class="t v16">16</div><div class="t v8">8</div><div class="t v4">4</div>
+          <div class="t"></div><div class="t v512">512</div><div class="t v4">4</div><div class="t v4">4</div>
+          <div class="t"></div><div class="t"></div><div class="t v512">512</div><div class="t v2">2</div>
+          <div class="t"></div><div class="t"></div><div class="t v2048">2048</div><div class="t v2">2</div>
+        </div>
+        <div class="facts"><div><span>reward</span><span class="num">+4</span></div><div><span>empty cells</span><span class="num">5</span></div><div><span>2048 in a corner</span><span class="no">no</span></div></div>
+      </div>
+    </div>
+  </div>
+  <p class="say">up and down both merge the 512s for <b>1,028</b> points. of those two, only down keeps the 2048 in its corner, and that is where the model puts <b>0.77</b>.</p>
+  <footer>each move token gets 14 numbers: legal, merge reward, empty cells, max tile, max in a corner, row and column monotonicity, smoothness, merges left, tile sum, and the reward of each next move</footer>
+</main>
+</body>
+</html>

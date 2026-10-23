@@ -63,6 +63,10 @@ m.decide([[0, 1, 0, 0], [0, 0, 0, 0], [0, 0, 1, 0], [0, 0, 0, 0]])   # tile expo
 
 ## How it works
 
+![inside the model: 16 tile tokens, 4 move tokens and 1 value token go through 8 pre-norm blocks of 12-head attention and a 384-1536-384 MLP, then a policy head with one logit per move token and a value head used only in training](diagrams/arch.png)
+
+![what a move token knows: the four afterstates of a real board; up and down both merge the 512s for 1,028 points, only down keeps the 2048 in its corner, and the model puts 0.77 on down](diagrams/moves.png)
+
 ![how it learned: the teacher plays, 460M of its moves, copy the teacher, reflex.pt; a DAgger detour dropped play from 56,652 to 4,188](diagrams/train.png)
 
 - **Input:** 16 tile tokens (tile-exponent + row + column embeddings), plus 4 action tokens built from each move's afterstate (legality, reward, empties, max tile and whether it's in a corner, monotonicity, smoothness, merges, and the follow-up move rewards), plus 1 value token.
