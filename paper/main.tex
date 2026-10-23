@@ -240,6 +240,9 @@ This is the distribution shift DAgger is meant to fix, and it is large: the stud
 A 14.5M-parameter transformer distilled from depth-3 and depth-4 expectimax for under \$10 plays 2048 at 164k mean score with one forward pass per move: a long way from the search-free records, but it runs on a laptop.
 The more durable findings are negative: the student's own boards are where its calibrated-looking probabilities stop meaning anything, and the standard remedy, DAgger, made play far worse while every offline metric stayed flat.
 
+\paragraph{Acknowledgements.}
+The RunPod credits that paid for all compute in this work were given by \href{https://www.linkedin.com/in/pranavram98/}{pranavram98}. We thank him for them.
+
 \paragraph{Reproducibility.}
 Code, launcher, data checks, logs and the checkpoint are at \url{https://github.com/a3ro-dev/reflex-2048}. The teacher patch modifies GPL-3.0 code and is distributed as a patch script.
 

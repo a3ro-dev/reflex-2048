@@ -82,3 +82,7 @@ m.decide([[0, 1, 0, 0], [0, 0, 0, 0], [0, 0, 1, 0], [0, 0, 0, 0]])   # tile expo
 - `paper/`: NeurIPS-format write-up.
 
 Budget: $8.72 of A100 time in total, including one pod migration when the original host's GPU got taken.
+
+## Thanks
+
+The RunPod credits that paid for every GPU-hour here came from [pranavram98](https://www.linkedin.com/in/pranavram98/). This project would not have run without them. Thank you.
