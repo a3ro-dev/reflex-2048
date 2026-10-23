@@ -78,14 +78,15 @@ def main():
     ap.add_argument("--watch", action="store_true")
     ap.add_argument("--out", default="/root/runs/eval.jsonl")
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     args = ap.parse_args()
     last, best = None, -1
     while True:
         if os.path.exists(args.ckpt) and os.path.getmtime(args.ckpt) != last:
             last = os.path.getmtime(args.ckpt)
-            model = load(args.ckpt, "cuda")
+            model = load(args.ckpt, args.device)
             step = torch.load(args.ckpt, weights_only=False, map_location="cpu").get("step", 0)
-            res = play(model, args.games, use_sym=args.sym, seed=args.seed,
+            res = play(model, args.games, device=args.device, use_sym=args.sym, seed=args.seed,
                        live=os.path.join(os.path.dirname(args.out), "live.json"))
             res.update(t=time.time(), step=step, ckpt=args.ckpt)
             if args.watch and res["mean_score"] > best:   # keep the best checkpoint seen so far
