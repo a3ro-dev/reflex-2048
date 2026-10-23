@@ -5,10 +5,10 @@ set -euo pipefail
 cd /root/reflex2048
 O=/root/runs/final; mkdir -p $O; rm -f /root/runs/WRAP_UP
 R=/root/runs/reflex
-for c in latest best; do
+for c in latest best best_run1; do
   python3 -m reflex.evaluate --ckpt $R/$c.pt --games 2048 --seed 1 --out $O/select_$c.jsonl
 done
-W=$(python3 -c "import json;m={c:json.loads(open('$O/select_'+c+'.jsonl').readlines()[-1])['mean_score'] for c in ('latest','best')};print(max(m,key=m.get))")
+W=$(python3 -c "import json;m={c:json.loads(open('$O/select_'+c+'.jsonl').readlines()[-1])['mean_score'] for c in ('latest','best','best_run1')};print(max(m,key=m.get))")
 cp $R/$W.pt $O/reflex.pt; echo "winner: $W" | tee $O/winner.txt
 python3 -m reflex.evaluate --ckpt $O/reflex.pt --games 10000 --seed 900000 --out $O/eval_10k.jsonl
 python3 -m reflex.dagger --ckpt $O/reflex.pt --rounds 1 --seed 910000 --games 512 --depth 4 --workers 12 \
